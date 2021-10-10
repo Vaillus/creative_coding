@@ -14,17 +14,18 @@ void draw()
   float t = 1.0*frameCount/numFrames;
   
   float r = 100;
-  float x = width/2 + r*cos(TWO_PI*t);
+  float x = width/4 + r*cos(TWO_PI*t);
   float y = height/2 + r*sin(TWO_PI*t);
   
   stroke(0);
+
   strokeWeight(9.0); // size of black dot
   
   point(x,y);
   
   if(frameCount<=numFrames)
   {
-    saveFrame("fr###.gif");
+    saveFrame("gifs/fr###.gif");
   }
   if(frameCount==numFrames)
   {
