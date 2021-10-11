@@ -42,7 +42,7 @@ void step()
       float y = map(j,0,m-1,0,height);
       
       float size = periodicFunction(t-offset(x,y));
-      strokeWeight(10.0);      
+      strokeWeight(size);      
       point(x,y);
     }
   }
