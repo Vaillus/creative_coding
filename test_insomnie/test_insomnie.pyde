@@ -1,11 +1,10 @@
 
-
 def setup():
-    size(400,400)
+    size(400,800)
 
 numFrames = 100
-blu = [176, 109, 0]
-re = [59, 0, 18]
+blu = [13, 0, 11]
+re = [31, 20, 82]
 
 def gradient(f, c1, c2):
     ret = []
@@ -27,13 +26,13 @@ def sin_arange(arange, offset):
     # take as input values between -1 and 1 and an offset from
     return [map(sin(i + offset),-1,1, 0.4,1) for i in arange]
 
-def scale_i(i, maxi):
-    return i/maxi
+def scale_i(i, maxi, mini):
+    return (i- mini)/(maxi - mini)
 
 def draw():
     background(255)
     t = 1.0*frameCount/numFrames
-    n_franges = 10
+    n_franges = 30
     arange = [i for i in range(n_franges)]
     #print(arange)
     arange = scale_arange(arange)
@@ -44,25 +43,27 @@ def draw():
     arange = [i / sum for i in arange]
     sum2=0
     maxi = 0
+    mini = 1
     for i in arange:
         if i > maxi:
             maxi = i
+        if i < mini:
+            mini = i
         sum2 += i
-    print(sum2)
+    #print(sum2)
     cumul = 0
     #print(arange)
     for i in arange:
         #print(i)
         h = i * height
         #print((1- (i/maxi)))
-        i=scale_i(i, maxi)
+        i=scale_i(i, maxi, mini)
         c = gradient(i, blu, re)#color(i*150, 0, (1- i)*100)
-        print(c)
+        ##print(c)
         fill(color(*c))
         rect(0, cumul, width, h)
         cumul += h
-    #if(frameCount<=numFrames):
-    #    saveFrame("gif/fr###.gif")
-        #print(cumul)
+    if(frameCount<=numFrames):
+        saveFrame("gif/fr###.gif")
 
     
