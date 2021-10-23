@@ -1,0 +1,203 @@
+def test():
+    print("ok")
+
+def arange(s, e, step):
+    # since I apparently can't do a range between e.g.  0.01 and 1.49, I have
+    # to do it between 1 and 149 and then multiply by step size.
+    # so it returns values in the correct range
+    mul = 1 / step
+    e_big = int(round(e * mul))
+    s_big = int(s * mul)
+    l = []
+    for i in range(s_big, e_big):
+        l += [i * step]
+    return l
+
+def long_list(val, siz):
+    ar = []
+    print(siz)
+    for i in range(int(siz)):
+        ar += [val]
+    return ar
+
+def point_mid(x,y, w_scale = 1):
+    point(width/2 + x * w_scale, height/2 - y)
+
+
+def draw_circle(rad, step, offset):
+    # too specific. Must refactor
+    l = arange(-PI, PI, step)
+    base = offset
+    #print(offset)
+    r_var = map(sin(offset*4), -1, 1, -30, 30)
+    s = arange(base, base + TWO_PI, step)
+    s = [sin(i*20) for i in s]
+    h = 100
+    for i in range(len(l)):
+        #l[i] += s[i]
+        #print(h + s[i]*5)
+        point_polar(l[i], h + r_var + s[i]*10)
+
+def get_mid(x,y):
+    return width/2 + x , height/2 - y
+
+def point_polar(i, rad, mult = 1):
+    point_mid(rad * cos(i/mult), rad * sin(i/ mult))
+
+def get_polar(x, y):
+    return y * cos(x), y * sin(x)
+
+def polar(x, y):
+    r = sqrt(x ** 2 + y ** 2)
+    tet = atan( y / x)
+    return r, tet
+
+def transform(x,y):
+    return get_circle_pos(y, x)
+
+def cart():
+    pass
+
+def two_pi_offset(t):
+    offset = map(t, 0.0,1.0, 0.0, TWO_PI)
+    offset = repeat_offset(offset)
+    return offset
+
+def repeat_offset(offset):
+    mod = floor(offset / TWO_PI)
+    offset -= TWO_PI * mod
+    return offset
+
+
+def get_vert_lines(x, offset):
+    tp = arange(0, TWO_PI, 0.05)
+    lin_len = 2 # height of the line
+    n_repeat = 6.75 # number of times the sinusoid repeats
+    amplitude = 3 # width amplitude of the sinusoid
+    sep = 5 # half the number of pixels separating the sinusoids
+    positions = []
+    for i in range(len(tp)):
+        x1 = sin(tp[i]*n_repeat)*amplitude + sep + x
+        y = i* lin_len
+        x2 = sin(tp[i] * n_repeat + PI )*amplitude - sep + x
+        positions += [[x1, y]]
+        positions += [[x2, y]]
+        #point_mid(sin(tp[i]*n_repeat)*amplitude + sep + x, i* lin_len)
+        #point_mid(sin(tp[i] * n_repeat + PI )*amplitude - sep + x, i* lin_len)
+    return positions
+
+def make_std_vert_line(n_rep, n_points, offset):
+    tp = arange(0, TWO_PI, 1.0/ float(n_points))
+    positions = []
+    for i in range(len(tp)):
+        x = sin((tp[i] - offset - PI/2)*n_rep)
+        y = float(i) / float(n_points * TWO_PI)
+        positions += [[x, y]]
+    return positions
+
+def copy_mirror(pos):
+    new_pos = []
+    for p in pos:
+        new_pos += [[-p[0], p[1]]]
+    return new_pos
+
+def map_pos(pos, left, right):
+    new_pos = []
+    for p in pos:
+        p0 = map(p[0], -1.0, 1.0, left, right)
+        new_pos += [[p0, p[1]]]
+    return new_pos
+
+def make_std_vert_lines(inf, ext, n_rep, n_points, offset):
+    pos1 = make_std_vert_line(n_rep, n_points, offset)
+    #print(pos1)
+    pos2 = copy_mirror(pos1)
+    pos1 = map_pos(pos1, -1.0 + ext, 0.0 - inf)
+    pos2 = map_pos(pos2,  0.0 + inf, 1.0 - ext)
+    return pos1 + pos2
+
+def make_scaled_vert_lines(h, w, inf, ext, n_rep, n_points, offset):
+    points = make_std_vert_lines(inf, ext, n_rep, n_points, offset)
+    return scale_points(points, h, w)
+
+def scale_points(points, h, w):
+    new_points = []
+    for p in points:
+        new_points += [[p[0]*w/2, p[1]*h]]
+    return new_points
+
+def create_vert_lines_rep(t_rep, h, inf, ext, n_rep, n_points, offset):
+    w = TWO_PI / float(t_rep)
+    t_points = [[0.0, 0.0]]
+    for i in range(t_rep):
+        w_offset = PI - TWO_PI / t_rep * (i + 0.5)
+        points = make_scaled_vert_lines(h, w, inf, ext, n_rep, n_points, offset)
+        points = offset_w_points(points, w_offset)
+        t_points += points
+    return t_points
+
+def offset_w_points(points, w):
+    new_points = []
+    for p in points:
+        new_points += [[p[0]+w, p[1]]]
+    return new_points
+
+def create_outter_shape(t_rep, A):
+    V = get_vertices(t_rep * 2, A + 3)
+    print(V)
+    for i in range(t_rep*2):
+        x1, y1 = V[i]
+        if i == t_rep*2 - 1:
+            x2, y2 = V[0]
+        else:
+            x2, y2 = V[i + 1]
+        draw_outter_square(x1, y1, x2, y2)
+        stroke(0.1)
+        noFill()
+        line(x1, y1, x2, y2)
+        #pass
+        
+def get_vertices(t_rep, A):
+    points = []
+    for i in range(t_rep):
+        w_offset = PI - TWO_PI / t_rep * (i)
+        x, y = get_polar(w_offset, A)
+        x, y = get_mid(x,y)
+        points += [[x, y]]
+    return points
+
+def draw_outter_square(x1, y1, x2, y2):
+    pass #line(x1, )
+    
+
+
+
+def test_func(t):
+    offset = two_pi_offset(t)
+    #offset = sin(offset)
+    # get_circle_pos(polar(x,y))
+    black = color(0,0,0)
+    fill(black)
+    #draw_circle(100, 0.02, offset)
+    #for i in range(-2, 3):
+    #    mult = 20
+    #    pos = get_vert_lines(i *  mult, offset)
+        #points = make_std_vert_lines( )
+        #points = make_scaled_vert_lines(100.0, 100.0, 0.02, 0.1, 3, 50)
+    t_rep = 6
+    A = 100.0
+    points = create_vert_lines_rep(t_rep, A, 0.05, 0.05, 5, 20, offset)
+    #print(points)
+    for p in points:
+        #print(p)
+        point_polar(*p)
+        x, y = get_mid(0,0)
+    circle(x, y, 10)
+
+    points = create_outter_shape(t_rep, A)
+    
+
+        #for p in pos:
+        #    point_polar(*p, mult=mult )
+        #point_polar()
+    

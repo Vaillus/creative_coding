@@ -1,0 +1,33 @@
+def test():
+    print("ok")
+def arange(s, e, step):
+    mul = 1 / step
+    e_big = int(round(e * mul))
+    s_big = int(s * mul)
+    l = []
+    for i in range(s_big, e_big):
+        l += [i/ step]
+    return l
+
+def point_mid(x,y):
+    point(width/2 + x, height/2 + y)
+
+
+def draw_circle(rad, step):
+    l = arange(0, TWO_PI, step)
+    for i in l:
+        point_mid(get_circle_pos(rad, i))
+
+def get_circle_pos(rad, i):
+    return rad * cos(i), rad * sin(i)
+
+def polar(x, y):
+    r = sqrt(x ** 2 + y ** 2)
+    tet = atan( y / x)
+    return r, tet
+
+def test_func():
+    black = color(0,0,0)
+    fill(black)
+    draw_circle(100, 0.001)
+    

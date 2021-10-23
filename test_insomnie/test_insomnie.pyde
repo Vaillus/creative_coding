@@ -42,13 +42,9 @@ def draw():
         sum += i
     arange = [i / sum for i in arange]
     sum2=0
-    maxi = 0
-    mini = 1
+    maxi = max(arange)
+    mini = min(arange)
     for i in arange:
-        if i > maxi:
-            maxi = i
-        if i < mini:
-            mini = i
         sum2 += i
     #print(sum2)
     cumul = 0

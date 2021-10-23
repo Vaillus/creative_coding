@@ -1,0 +1,64 @@
+def test():
+    print("ok")
+
+def arange(s, e, step):
+    mul = 1 / step
+    e_big = int(round(e * mul))
+    s_big = int(s * mul)
+    l = []
+    for i in range(s_big, e_big):
+        l += [i * step]
+    return l
+
+def long_list(val, siz):
+    ar = []
+    print(siz)
+    for i in range(int(siz)):
+        ar += [val]
+    return ar
+
+def point_mid(x,y):
+
+    point(width/2 + x, height/2 - y)
+
+
+def draw_circle(rad, step, offset):
+    l = arange(-PI, PI, step)
+    base = offset
+    #print(offset)
+    r_var = map(offset, 0, TWO_PI, -30, 30)
+    s = arange(base, base + TWO_PI, step)
+    s = [sin(i*20) for i in s]
+    h = 100
+    for i in range(len(l)):
+        #l[i] += s[i]
+        #print(h + s[i]*5)
+        circle_pos = get_circle_pos(h + r_var + s[i]*10, l[i])
+        point_mid(*circle_pos)
+
+        
+
+def get_circle_pos(rad, i):
+    return rad * cos(i), rad * sin(i)
+
+def polar(x, y):
+    r = sqrt(x ** 2 + y ** 2)
+    tet = atan( y / x)
+    return r, tet
+
+def transform(x,y):
+    return get_circle_pos(y, x)
+
+def cart():
+    pass
+
+def test_func(t):
+    offset = map(t, 0.0,1.0, 0.0, TWO_PI)
+    mod = floor(offset / TWO_PI)
+    offset -= TWO_PI * mod
+    #offset = sin(offset)
+    # get_circle_pos(polar(x,y))
+    black = color(0,0,0)
+    fill(black)
+    draw_circle(100, 0.02, offset)
+    
