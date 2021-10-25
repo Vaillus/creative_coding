@@ -1,6 +1,6 @@
 from Test import *
 
-numFrames = 1000
+numFrames = 500
 
 def setup():
     size(400,400)
@@ -11,9 +11,8 @@ def draw():
     background(255)
     #point(10,10)
     test_func(t)
-    """
-    if(frameCount<=numFrames):
-        saveFrame("gif/fr###.gif")
-    if frameCount == numFrames:
-        print("export done.")
-    """
+
+    #if(frameCount<=numFrames):
+    #    saveFrame("gif/fr###.gif")
+    #if frameCount == numFrames:
+    #    print("export done.")

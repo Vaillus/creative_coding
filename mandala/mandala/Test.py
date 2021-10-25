@@ -13,16 +13,17 @@ def arange(s, e, step):
         l += [i * step]
     return l
 
+
 def long_list(val, siz):
     ar = []
-    print(siz)
+    
     for i in range(int(siz)):
         ar += [val]
     return ar
 
+
 def point_mid(x,y, w_scale = 1):
     point(width/2 + x * w_scale, height/2 - y)
-
 
 def draw_circle(rad, step, offset):
     # too specific. Must refactor
@@ -144,7 +145,6 @@ def offset_w_points(points, w):
 
 def create_outter_shape(t_rep, A):
     V = get_vertices(t_rep * 2, A + 3)
-    print(V)
     for i in range(t_rep*2):
         x1, y1 = V[i]
         if i == t_rep*2 - 1:
@@ -195,9 +195,7 @@ def test_func(t):
     circle(x, y, 10)
 
     points = create_outter_shape(t_rep, A)
-    
-
-        #for p in pos:
-        #    point_polar(*p, mult=mult )
-        #point_polar()
+    #for p in pos:
+    #    point_polar(*p, mult=mult )
+    #point_polar()
     
