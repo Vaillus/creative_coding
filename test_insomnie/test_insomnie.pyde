@@ -1,4 +1,5 @@
-
+from typing import Tuple
+import math
 def setup():
     size(400,800)
 
@@ -62,4 +63,9 @@ def draw():
     if(frameCount<=numFrames):
         saveFrame("gif/fr###.gif")
 
-    
+
+
+def compute_angle(x:tuple, y:tuple):
+    x1, y1 = x
+    x2, y2 = y
+    return atan2(y2-y1, x2-x1)
