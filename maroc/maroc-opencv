@@ -1,0 +1,70 @@
+import cv2
+import numpy as np
+from ellipse import Ellipse, Arc
+
+def test():
+    img = np.zeros((400, 400, 3), dtype = "uint8")
+    
+    cv2.rectangle(img, (0, 0), (250, 250), (255, 255, 255), -1)
+    #draw a red line
+    cv2.line(img, (0, 0), (250, 250), (0, 0, 255), 1 )
+    cv2.imshow("output", img)
+    cv2.waitKey(0) 
+
+def base():
+    img = np.zeros((400, 400, 3), dtype = "uint8")
+    print("begin")
+    center = 200
+    wid = 200
+    hei = 300
+    b_border = 350
+    print("yo")
+    base = (center,b_border)
+    left = (center-int(wid/2), b_border -100)
+    right = (center+int(wid/2), b_border -100)
+    top = (center, b_border - hei)
+    print("top: "+str(top))
+    lcenter = (100, 390)
+    rcenter = (300, 390)
+    print("yo")
+    #line(200,0, 200, 400)
+    #point(*lcenter)
+    #draw_ellipse((200,200), 200, 100)
+    #full_draw_arc((200,200), (201,301), (298, 198))
+    sw = Arc(lcenter, left, base)
+    sw.display(img)
+    #sw.convert_point_rad(left)
+    se = Arc(rcenter, right, base)
+    se.display(img)
+    nw = Arc(rcenter, top, left)
+    nw.display(img)
+    ne = Arc(lcenter, top, right)
+    ne.display(img)
+
+    display_middle(ne,sw, nw, sw)
+
+    cv2.imshow("output", img)
+    cv2.waitKey(0) 
+    
+def display_middle(top_para, bot_para, top_ort, bot_ort):
+    multi = 0.5
+    #print(str(arc1.center[0]))
+    center = (float(top_para.center[0] + bot_para.center[0]) * multi, float(top_para.center[1] + bot_para.center[1]) * multi)
+    #tang = float(arc1.tang + arc2.tang) * multi
+    #bang = float(arc1.bang + arc2.bang) * multi
+    a = float(top_para.a + bot_para.a) * multi
+    b = float(top_para.b + bot_para.b) * multi
+
+    tp = (float(arc1.tp[0] + arc2.tp[0]) * multi, float(arc1.tp[1] + arc2.tp[1]) * multi)
+    bp = (float(arc1.bp[0] + arc2.bp[0]) * multi, float(arc1.bp[1] + arc2.bp[1]) * multi)
+    new_arc = Segment(center, a, b, tp, bp)
+    new_arc.display()
+
+
+
+
+
+
+if __name__ == "__main__":
+    #test()
+    base()
