@@ -31,7 +31,6 @@ def draw():
     nw.display()
     ne = init_arc(lcenter, top, right)
     ne.display()
-    compute_ellipses_intersections(sw, se)
     
     display_middle(ne,sw, nw, sw)
     
@@ -54,7 +53,7 @@ def display_middle(top_para, bot_para, top_ort, bot_ort):
     bp = (float(top_para.bp[0] + bot_para.bp[0]) * multi, float(top_para.bp[1] + bot_para.bp[1]) * multi)
     new_arc = Segment(center, a, b, tp, bp)
     new_arc.display()
-    
+
 
 def full_draw_arc(center, p1, p2):
     #print("center: "+str(center))
@@ -147,51 +146,4 @@ class Segment():
         #print("relative y axis : "+str(pt[1] - self.center[1]))
         #print("angle: "+str(res))
         return res
-
-def compute_ellipses_intersections(ell1, ell2):
-    # small variables
-    a = ell1.center[0]
-    b = ell1.a ** 2
-    c = ell1.center[1]
-    k = ell1.b ** 2
-    e = ell2.center[0]
-    f = ell2.a ** 2
-    g = ell2.center[1]
-    h = ell2.b ** 2
-    # big variables
-    A = 1/b - 1/f
-    B = -2*a/b + 2*e/f
-    C = 1/k - 1/h
-    D = -2*c/k + 2*g/h
-    E = a**2/b + c**2/k + e**2/f + g**2/h
-    # compute the intersection points of the ellipses
-    # with the big variables
-    # x1, x2 = solve_quadratic(A, B, E)
-    # y1, y2 = solve_quadratic(C, D, E)
-    # print("x1: "+str(x1))
-    # print("x2: "+str(x2))
-    # print("y1: "+str(y1))
-    # print("y2: "+str(y2))
-    x =
-    y0, y1 = compute_y(x, A, B, D, E)
-
-def solve_quadratic(A,B,E):
-    print("solve quadratic")
-    print(A)
-    print(B)
-    print(E)
-    print("=====")
-    print(B**2 - 4*A*E)
-    if B**2 - 4*A*E < 0:
-        return None
-    x1 = (-B + sqrt(B**2 - 4*A*E)) / (2*A)
-    x2 = (-B - sqrt(B**2 - 4*A*E)) / (2*A)
-    return x1, x2
-
-def compute_y(x, A, B, C, D, E):
-    delta = D**2 - 4*(A*x**2 +B*x + E) * C
-    if delta < 0:
-        return None
-    y1 = (-D + sqrt(delta)) / (2*C)
-    y2 = (-D - sqrt(delta)) / (2*C)
-    return y1, y2
+        
