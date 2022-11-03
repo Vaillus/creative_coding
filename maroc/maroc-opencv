@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
-from ellipse import Ellipse, Arc
+from ellipse import Ellipsex, Arcx
+from sympy import *
+import matplotlib.pyplot as plt
+from shapely.geometry.polygon import LinearRing
 
 def test():
     img = np.zeros((400, 400, 3), dtype = "uint8")
@@ -31,14 +34,14 @@ def base():
     #point(*lcenter)
     #draw_ellipse((200,200), 200, 100)
     #full_draw_arc((200,200), (201,301), (298, 198))
-    sw = Arc(lcenter, left, base)
+    sw = Arcx(lcenter, left, base)
     sw.display(img)
     #sw.convert_point_rad(left)
-    se = Arc(rcenter, right, base)
+    se = Arcx(rcenter, right, base)
     se.display(img)
-    nw = Arc(rcenter, top, left)
+    nw = Arcx(rcenter, top, left)
     nw.display(img)
-    ne = Arc(lcenter, top, right)
+    ne = Arcx(lcenter, top, right)
     ne.display(img)
 
     display_middle(ne,sw, nw, sw)
@@ -46,7 +49,7 @@ def base():
     cv2.imshow("output", img)
     cv2.waitKey(0) 
     
-def display_middle(top_para, bot_para, top_ort, bot_ort):
+def display_middle(top_para:Arcx, bot_para:Arcx, top_ort:Arcx, bot_ort:Arcx):
     multi = 0.5
     #print(str(arc1.center[0]))
     center = (float(top_para.center[0] + bot_para.center[0]) * multi, float(top_para.center[1] + bot_para.center[1]) * multi)
@@ -54,13 +57,50 @@ def display_middle(top_para, bot_para, top_ort, bot_ort):
     #bang = float(arc1.bang + arc2.bang) * multi
     a = float(top_para.a + bot_para.a) * multi
     b = float(top_para.b + bot_para.b) * multi
+    new_ellipse = Ellipse(center, a, b)
+    # compute the intersection between new_ellipse and top_ort
+    compute_ellipses_intersections(new_ellipse, top_ort)
+    print("yo")
+    #x, y = new_ellipse.intersect(top_ort)
 
-    tp = (float(arc1.tp[0] + arc2.tp[0]) * multi, float(arc1.tp[1] + arc2.tp[1]) * multi)
-    bp = (float(arc1.bp[0] + arc2.bp[0]) * multi, float(arc1.bp[1] + arc2.bp[1]) * multi)
-    new_arc = Segment(center, a, b, tp, bp)
-    new_arc.display()
+    # tp = (float(arc1.tp[0] + arc2.tp[0]) * multi, float(arc1.tp[1] + arc2.tp[1]) * multi)
+    # bp = (float(arc1.bp[0] + arc2.bp[0]) * multi, float(arc1.bp[1] + arc2.bp[1]) * multi)
+    # new_arc = Segment(center, a, b, tp, bp)
+    #new_arc.display()
 
+def compute_ellipses_intersections(ell1:Arcx, ell2:Arcx):
+    a, b = ellipse_polyline(
+        [(ell1.center[0], ell1.center[1], ell1.a, ell1.b, 0), 
+        (ell2.center[0], ell2.center[1], ell2.a, ell2.b, 0)]
+    )
+    x, y = intersections(a, b)
+    plt.plot(x, y, "o")
+    plt.plot(a[:,0], a[:,1])
+    plt.plot(b[:,0], b[:,1])
 
+def ellipse_polyline(ellipses, n=100):
+    t = np.linspace(0, 2*np.pi, n, endpoint=False)
+    st = np.sin(t)
+    ct = np.cos(t)
+    result = []
+    for x0, y0, a, b, angle in ellipses:
+        angle = np.deg2rad(angle)
+        sa = np.sin(angle)
+        ca = np.cos(angle)
+        p = np.empty((n, 2))
+        p[:, 0] = x0 + a * ca * ct - b * sa * st
+        p[:, 1] = y0 + a * sa * ct + b * ca * st
+        result.append(p)
+    return result
+
+def intersections(a, b):
+    ea = LinearRing(a)
+    eb = LinearRing(b)
+    mp = ea.intersection(eb)
+
+    x = [p.x for p in mp]
+    y = [p.y for p in mp]
+    return x, y
 
 
 

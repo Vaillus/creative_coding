@@ -1,6 +1,5 @@
 from math import atan2
 import numpy as np
-import cv2
 
 def draw_arc(center, a,b, p1, p2, img):
     xmax = max(p1[0],p2[0])
@@ -21,7 +20,7 @@ def draw_arc(center, a,b, p1, p2, img):
                 #cv2.circle(img, (x+center[0], yp+center[1]), 1, (0,0,255), -1)
                 #point(x+center[0],ym+center[1])
 
-class Ellipse():
+class Ellipsex():
     def __init__(self, center, a, b, top_point=None, bottom_point=None):
         self.center = center
         self.a = a
@@ -66,10 +65,22 @@ class Ellipse():
         #print("relative y axis : "+str(pt[1] - self.center[1]))
         #print("angle: "+str(res))
         return res
+    
+def intersect(el1:Ellipsex, el2:Ellipsex):
+    # compute the intersection points between the two ellipses
+    x = el1.center[0]
+    y = el1.center[1]
+    a = el1.a
+    b = el1.b
+    x2 = el2.center[0]
+    y2 = el2.center[1]
+    a2 = el2.a
+    b2 = el2.b
 
-class Arc(Ellipse):
+
+class Arcx(Ellipsex):
     def __init__(self, center, top_point=None, bottom_point=None, start_angle=None, end_angle=None):
-        a, b = Ellipse.compute_ellipse_from_three(center, top_point, bottom_point)
+        a, b = Ellipsex.compute_ellipse_from_three(center, top_point, bottom_point)
         super().__init__(center, a, b, top_point, bottom_point)
         self.start_angle = start_angle
         self.end_angle = end_angle
