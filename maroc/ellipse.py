@@ -3,8 +3,9 @@ import numpy as np
 from typing import Tuple, List
 from shapely.geometry.polygon import LinearRing
 import matplotlib.pyplot as plt
+import cv2
 
-def draw_arc(center, a,b, p1, p2, img, color=(0,0,0)):
+def draw_arc(center, a,b, p1, p2, img, color=(0,0,0), bold:bool=False):
     xmax = max(p1[0],p2[0])
     xmin = min(p1[0],p2[0])
     ymax = max(p1[1],p2[1])
@@ -15,8 +16,24 @@ def draw_arc(center, a,b, p1, p2, img, color=(0,0,0)):
             ym = - yp
             if (yp+center[1] <= ymax) and (yp+center[1]>=ymin):
                 img[int(x+center[0]), int(yp+center[1])] = color
+                # draw all adjacent pixels
+                if bold:
+                    cv2.circle(img, (int(x+center[0]), int(yp+center[1])), 2, color, -1)
+                    # img[int(x+center[0]), int(yp+center[1])+1] = color
+                    # img[int(x+center[0]), int(yp+center[1])-1] = color
+                    # img[int(x+center[0])+1, int(yp+center[1])] = color
+                    # img[int(x+center[0])-1, int(yp+center[1])] = color
+
             if (ym+center[1] <= ymax) and (ym+center[1]>=ymin):
                 img[int(x+center[0]),int(ym+center[1])] = color
+                if bold:
+                    # print("bold")
+                    # draw all adjacent pixels
+                    cv2.circle(img, (int(x+center[0]), int(ym+center[1])), 2, color, -1)
+                    # img[int(x+center[0]), int(ym+center[1])+1] = color
+                    # img[int(x+center[0]), int(ym+center[1])-1] = color
+                    # img[int(x+center[0])+1, int(ym+center[1])] = color
+                    # img[int(x+center[0])-1, int(ym+center[1])] = color
 
 class Oval():
     def __init__(self, center, a, b, top_point=None, bottom_point=None):
@@ -45,8 +62,8 @@ class Oval():
         
         return a, b
 
-    def display(self, img):
-        draw_arc(self.center, self.a, self.b, self.tp, self.bp, img)
+    def display(self, img, bold:bool=False):
+        draw_arc(self.center, self.a, self.b, self.tp, self.bp, img, bold=bold)
     
     def convert_point_rad(self, pt):
         res = atan2(pt[1] - self.center[1], pt[0] - self.center[0])
@@ -64,8 +81,8 @@ class Oval():
         x, y = sel_good_point(x, y, other)
         return x, y
 
-    def render(self, img, color=(0,0,0)):
-        draw_arc(self.center, self.a, self.b, self.tp, self.bp, img, color)
+    def render(self, img, color=(0,0,0), bold:bool=False):
+        draw_arc(self.center, self.a, self.b, self.tp, self.bp, img, color, bold)
 
 
 
