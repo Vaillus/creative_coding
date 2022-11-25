@@ -17,6 +17,14 @@ def test():
     cv2.imshow("output", img)
     cv2.waitKey(0) 
 
+def sort_points_clockwise(points:List[Tuple[float]]) -> List[Tuple[float]]:
+    # sort the points clockwise
+    # set the center as the mean of the points
+    center = np.mean(points, axis=0)
+    # sort the points by the angle they and the center make
+    points = sorted(points, key=lambda point: np.arctan2(point[1] - center[1], point[0] - center[0]))
+    return points
+
 def base():
     # initialize image
     
