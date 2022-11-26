@@ -46,7 +46,7 @@ class Oval():
         #self.bang = self.convert_point_rad(self.bp)
 
     @staticmethod
-    def compute_ellipse_from_three(center, p1, p2):
+    def compute_ellipse_axis(center, p1, p2):
         #print("compute a and b")
         Ax = (p1[0]- center[0]) ** 2
         Ay = (p1[1]- center[1]) ** 2
@@ -89,7 +89,7 @@ class Oval():
 
 class Arc(Oval):
     def __init__(self, center, top_point=None, bottom_point=None, start_angle=None, end_angle=None):
-        a, b = Oval.compute_ellipse_from_three(center, top_point, bottom_point)
+        a, b = Oval.compute_ellipse_axis(center, top_point, bottom_point)
         super().__init__(center, a, b, top_point, bottom_point)
         self.start_angle = start_angle
         self.end_angle = end_angle
