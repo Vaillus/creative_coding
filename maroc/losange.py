@@ -92,7 +92,7 @@ class Losange:
         center = (x,y)
         a = mid_val(para1.a, para2.a, multi)
         b = mid_val(para1.b, para2.b, multi)
-        new_el = el.Oval(center, a, b)
+        new_el = el.Arc(center, a, b)
         x, y = new_el.intersect(orth1)
         new_el.tp = (x,y)
         x, y = new_el.intersect(orth2)
