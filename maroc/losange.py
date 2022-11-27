@@ -10,9 +10,6 @@ def mid_val(a,b,multi=0.5):
     valmax = max(a,b)
     return float(valmin) + (valmax - valmin) * multi
 
-# === ellipses intersection ============================================
-
-
 class Losange:
     def __init__(
         self,
@@ -41,9 +38,15 @@ class Losange:
         self.ise = None
         self.generate_inner_borders()
         self.generate_lines()
+
+    def get_outline(self) -> el.Arc:
+        """Genreator for getting the four arcs of the losange"""
+        for arc in [self.inw, self.ine, self.isw, self.ise]:
+            yield arc
     
     def gen_relative_arc(self, arc: el.Arc, rel_pos:List[int]) -> el.Arc:
-
+        """Generate an arc with specified relative position to the 
+        given arc"""
         new_arc = el.Arc(
             tuple(np.array(arc.center) + np.array(rel_pos)),
             tuple(np.array(arc.tp) + np.array(rel_pos)),
@@ -52,13 +55,17 @@ class Losange:
         return new_arc
 
     def generate_inner_borders(self):
-        # genrate the ovals that are inside the losange
+        # generate the ovals that are inside the losange
         # copy onw into self.inw
         if self.relative:
-            self.inw = Losange.gen_middle(self.onw, self.ose, self.one, self.osw, 1.0 - self.pad)
-            self.ine = Losange.gen_middle(self.one, self.osw, self.onw, self.ose, 1.0 - self.pad)
-            self.isw = Losange.gen_middle(self.osw, self.one, self.ose, self.onw, self.pad)
-            self.ise = Losange.gen_middle(self.ose, self.onw, self.osw, self.one, self.pad)
+            self.inw = Losange.gen_middle(self.onw, self.ose, self.one, \
+                self.osw, 1.0 - self.pad)
+            self.ine = Losange.gen_middle(self.one, self.osw, self.onw, \
+                self.ose, 1.0 - self.pad)
+            self.isw = Losange.gen_middle(self.osw, self.one, self.ose, \
+                self.onw, self.pad)
+            self.ise = Losange.gen_middle(self.ose, self.onw, self.osw, \
+                self.one, self.pad)
         else:
             self.inw = self.gen_relative_arc(self.onw, [1, -1])
             self.ine = self.gen_relative_arc(self.one, [-1, -1])
@@ -80,12 +87,23 @@ class Losange:
         """Generate three arcs equally spaced between inw and ise"""
         if self.has_lines:
             self.lines = []
-            self.lines.append(Losange.gen_middle(self.inw, self.ise, self.ine, self.isw, 1.0/4))
-            self.lines.append(Losange.gen_middle(self.inw, self.ise, self.ine, self.isw, 2.0/4))
-            self.lines.append(Losange.gen_middle(self.inw, self.ise, self.ine, self.isw, 3.0/4))
+            self.lines.append(Losange.gen_middle(self.inw, self.ise, self.ine, \
+                self.isw, 1.0/4))
+            self.lines.append(Losange.gen_middle(self.inw, self.ise, self.ine, \
+                self.isw, 2.0/4))
+            self.lines.append(Losange.gen_middle(self.inw, self.ise, self.ine, \
+                self.isw, 3.0/4))
 
     @staticmethod
-    def gen_middle(para1:el.Arc, para2:el.Arc, orth1:el.Arc, orth2:el.Arc, multi=0.5) -> el.Arc:
+    def gen_middle(
+        para1:el.Arc, 
+        para2:el.Arc, 
+        orth1:el.Arc, 
+        orth2:el.Arc, 
+        multi=0.5
+    ) -> el.Arc:
+        """Generate the middle arc between two parallel arcs and two
+        orthogonal arcs"""
         # TODO : i compute the min and the max of all the values separately but I should probably not do that
         x = mid_val(para1.center[0], para2.center[0], multi)
         y = mid_val(para1.center[1], para2.center[1], multi)
@@ -99,6 +117,14 @@ class Losange:
         new_el.bp = (x,y)
         return new_el
 
+
+
+    # === plotting / point accessing ===================================
+
+
+
+
+
     def render(self, img, color=(0,0,0)):
         bold = self.thickness == 2
         self.inw.render(img, color, bold=bold)
@@ -108,4 +134,21 @@ class Losange:
         if self.has_lines:
             for line in self.lines:
                 line.render(img, color, bold=bold)
+    
+    def get_points(self, n_points:int) -> List[Tuple[int, int]]:
+        """Returns the points of the losange"""
+        # TODO : handle the case with the middle lines
+        points = []
+        for arc in self.get_outline():
+            arc_points = arc.get_points(n_points=n_points)
+            points.append(arc_points)
+        return points
+
+def sort_points_clockwise(points:List[Tuple[float]]) -> List[Tuple[float]]:
+    # sort the points clockwise
+    # set the center as the mean of the points
+    center = np.mean(points, axis=0)
+    # sort the points by the angle they and the center make
+    points = sorted(points, key=lambda point: np.arctan2(point[1] - center[1], point[0] - center[0]))
+    return points
 

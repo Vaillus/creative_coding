@@ -185,3 +185,18 @@ class Arc():
                 color, 
                 -1
             )
+    
+    def get_points(self, n_point:int) -> List[Tuple[float]]:
+        """return n_point points on the ellipse between top and bottom points
+        """
+        # ! absolutely not sure that it is going to work
+        # compute the angle of the top and bottom points
+        angle_tp = self.convert_point_rad(self.tp)
+        angle_bp = self.convert_point_rad(self.bp)
+        # compute the angle of the points to return
+        angle = np.linspace(angle_tp, angle_bp, n_point)
+        # compute the points
+        x = self.center[0] + self.a * np.cos(angle)
+        y = self.center[1] + self.b * np.sin(angle)
+        points = list(zip(x, y))
+        return points

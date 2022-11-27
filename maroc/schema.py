@@ -2,16 +2,18 @@ import losange as lo
 import ellipse as el
 from delaunay import Triangulation
 from typing import List, Tuple, Optional
-from shapely.geometry.polygon import LinearRing
 import numpy as np
 
 class Schema:
     def __init__(self):
         self.points : List[float] = []
         self.triangles : List[int]
+        self.outline = None
+        self.inner_los = None
 
     def get_list_points(self):
         sw, se, nw, ne = self._init_outline()
+        outline = lo.Losange(sw, se, nw, ne, relative=True, pad=0.1)
         n_mid_arcs = 4
         md: List[el.Arc] = [ne]
         mg = [nw]
@@ -19,23 +21,20 @@ class Schema:
         for i in reversed(range(0, n_mid_arcs)):
             if offset == 0 and i == 0:
                 continue
-            mid = self._gen_middle(ne,sw, nw, se, (i+offset)/n_mid_arcs)
-            #mid.render(img)
+            mid = lo.Losange.gen_middle(ne,sw, nw, se, (i+offset)/n_mid_arcs)
             md += [mid]
-            mid2 = self._gen_middle(nw, se, ne,sw, (i+offset)/n_mid_arcs)
-            #mid2.render(img)
+            mid2 = lo.Losange.gen_middle(nw, se, ne,sw, (i+offset)/n_mid_arcs)
             mg+= [mid2]
         md += [sw]
         mg += [se]
-
-
-
-
-
-    # === main parts creation  =========================================
-
-
-
+        points = []
+        for i in range(len(md)-1):
+            for j in range(len(md)-1):
+                losange = lo.Losange(mg[i], md[j], md[j+1], mg[i+1], pad=0.15)
+                points += losange.get_points()
+        big_losange = lo.Losange(nw, ne, se, sw, pad=0.15)
+        points += big_losange.get_points()
+        return points
 
 
     def _init_outline(self) -> Tuple[el.Arc]:
@@ -57,30 +56,5 @@ class Schema:
         nw = el.Arc(rcenter, top_point=top, bottom_point=left)
         ne = el.Arc(lcenter, top_point=top, bottom_point=right)
         return sw, se, nw, ne
-
-    def _gen_middle(
-        self, 
-        top_para:el.Arc, 
-        bot_para:el.Arc, 
-        top_ort:el.Arc, 
-        bot_ort:el.Arc, 
-        multi:float=0.5
-    ) -> el.Arc:
-        x = self._mid_val(top_para.center[0], bot_para.center[0], multi)
-        y = self._mid_val(top_para.center[1], bot_para.center[1], multi)
-        center = (x,y)
-        a = self._mid_val(top_para.a, bot_para.a, multi)
-        b = self._mid_val(top_para.b, bot_para.b, multi)
-        new_ellipse = el.Arc(center, a=a, b=b)
-        x, y = self._find_ellipses_intersection(new_ellipse, top_ort)
-        new_ellipse.tp = (x,y)
-        x, y = self._find_ellipses_intersection(new_ellipse, bot_ort)
-        new_ellipse.bp = (x,y)
-        return new_ellipse
-    
-    def _mid_val(self, a, b, multi=0.5) -> float:
-        valmin = min(a,b)
-        valmax = max(a,b)
-        return float(valmin) + (valmax - valmin) * multi
 
     
