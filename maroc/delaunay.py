@@ -13,12 +13,6 @@ class Triangulation:
         self.edges: List[Tuple[int]] = [] # Contains the indices of the points
         self.triangles: List[Tuple[int]] = [] # Contains the indices of the edges
         self.tolerance = 1e-6
-    
-    def _triangle_to_edges(self, triangle: tuple[int]) -> tuple[tuple[int]]:
-        """
-        Convert a triangle to its edges.
-        """
-        return ((triangle[0], triangle[1]), (triangle[1], triangle[2]), (triangle[2], triangle[0]))
 
     def plot(self):
         """plot the points and the edges of triangles"""
@@ -67,7 +61,6 @@ class Triangulation:
                 # legalize the edges of the triangulation
                 self._legalize_edge(point_id, (edge[0], other_point))
                 self._legalize_edge(point_id, (edge[1], other_point))
-            #self.plot()
         # remove the triangles that contain a factice point
         to_remove = []
         for tri_id, tri in enumerate(self.triangles):
@@ -78,15 +71,12 @@ class Triangulation:
                     break
         for tri_id in reversed(to_remove):
             self.triangles.pop(tri_id)
-        #self.triangles = [tri for tri in self.triangles if not any(p in self.factice_points for p in tri)]
         # remove the factice points from the points
         self.points = [p for p in self.points if p not in self.factice_points]
         # substract all point ids by the number of factice points in the triangles
         self.triangles = [(t[0] - len(self.factice_points), t[1] - len(self.factice_points), t[2] - len(self.factice_points)) for t in self.triangles]
 
     def _make_container_triangle(self):
-        # get the point with the highest y and x coordinates
-        # max_point = self._max_point()
         # create two other points such that the triangle formed by the three points
         # contains all the points of the triangulation
         x_min = min(self.points_to_add, key=lambda p: p[0])[0]
@@ -96,7 +86,6 @@ class Triangulation:
         max_point = (x_max, y_max)
         fict_point_1 = (x_min - 2 * (x_max - x_min), y_max)
         fict_point_2 = (x_max, y_min - 2 * (y_max - y_min))
-        #self.points_to_add.remove(max_point)
         # check if max_point is already in the points to add
         if max_point in self.points_to_add:
             self.points_to_add.remove(max_point)
@@ -241,6 +230,12 @@ class Triangulation:
             )
         )
         return ang
+
+    def _triangle_to_edges(self, triangle: tuple[int]) -> tuple[tuple[int]]:
+        """
+        Convert a triangle to its edges.
+        """
+        return ((triangle[0], triangle[1]), (triangle[1], triangle[2]), (triangle[2], triangle[0]))
 
 
 
