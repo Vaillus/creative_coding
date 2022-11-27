@@ -91,10 +91,10 @@ def init_borders() -> Tuple[el.Arc]:
     lcenter = (390, 100)
     rcenter = (390, 300)
     # initialize borders
-    sw = el.Arc(lcenter, left, base)
-    se = el.Arc(rcenter, right, base)
-    nw = el.Arc(rcenter, top, left)
-    ne = el.Arc(lcenter, top, right)
+    sw = el.Arc(lcenter, top_point=left, bottom_point=base)
+    se = el.Arc(rcenter, top_point=right, bottom_point=base)
+    nw = el.Arc(rcenter, top_point=top, bottom_point=left)
+    ne = el.Arc(lcenter, top_point=top, bottom_point=right)
     return sw, se, nw, ne
     
 def gen_middle(top_para:el.Arc, bot_para:el.Arc, top_ort:el.Arc, bot_ort:el.Arc, multi=0.5):
@@ -103,7 +103,7 @@ def gen_middle(top_para:el.Arc, bot_para:el.Arc, top_ort:el.Arc, bot_ort:el.Arc,
     center = (x,y)
     a = mid_val(top_para.a, bot_para.a, multi)
     b = mid_val(top_para.b, bot_para.b, multi)
-    new_ellipse = el.Oval(center, a, b)
+    new_ellipse = el.Arc(center, a=a, b=b)
     x, y = find_ellipses_intersection(new_ellipse, top_ort)
     new_ellipse.tp = (x,y)
     x, y = find_ellipses_intersection(new_ellipse, bot_ort)
@@ -125,7 +125,7 @@ def mid_val(a,b,multi=0.5):
 
 
 
-def find_ellipses_intersection(ell1:el.Oval, ell2:el.Oval) -> Tuple[float]:
+def find_ellipses_intersection(ell1:el.Arc, ell2:el.Arc) -> Tuple[float]:
     # convert the ellipses into a list of points
     a, b = ellipse_polyline(
         [(ell1.center[0], ell1.center[1], ell1.a, ell1.b, 0), 
@@ -137,13 +137,13 @@ def find_ellipses_intersection(ell1:el.Oval, ell2:el.Oval) -> Tuple[float]:
     x, y = sel_good_point(x, y, ell2)
     return x, y
 
-def sel_good_point(x:List[float], y:List[float], ell2:el.Oval) -> Tuple[float]:
+def sel_good_point(x:List[float], y:List[float], ell2:el.Arc) -> Tuple[float]:
     """find the point that is between the two limit points of ell2
 
     Args:
         x (List[float]): 
         y (List[float]): 
-        ell2 (el.Oval):
+        ell2 (el.Arc):
 
     Returns:
         Tuple[float]: 

@@ -23,7 +23,7 @@ def draw():
     #draw_ellipse((200,200), 200, 100)
     #full_draw_arc((200,200), (201,301), (298, 198))
     sw = init_arc(lcenter, left, base)
-    sw.display()
+    sw.display() # ! purposefully not available anymore
     #sw.convert_point_rad(left)
     se = init_arc(rcenter, right, base)
     se.display()

@@ -99,7 +99,7 @@ def sel_good_point(x:List[float], y:List[float], ell2) -> Tuple[float]:
     Args:
         x (List[float]): 
         y (List[float]): 
-        ell2 (el.Oval):
+        ell2 (el.Arc):
 
     Returns:
         Tuple[float]: 

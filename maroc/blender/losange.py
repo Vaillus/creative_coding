@@ -51,14 +51,14 @@ class Losange:
         self.ise.bp = self.ise.intersect(self.isw)
 
     @staticmethod
-    def gen_middle(para1:el.Arc, para2:el.Arc, orth1:el.Arc, orth2:el.Arc, multi=0.5) -> el.Oval:
+    def gen_middle(para1:el.Arc, para2:el.Arc, orth1:el.Arc, orth2:el.Arc, multi=0.5) -> el.Arc:
         # TODO : i compute the min and the max of all the values separately but I should probably not do that
         x = mid_val(para1.center[0], para2.center[0], multi)
         y = mid_val(para1.center[1], para2.center[1], multi)
         center = (x,y)
         a = mid_val(para1.a, para2.a, multi)
         b = mid_val(para1.b, para2.b, multi)
-        new_el = el.Oval(center, a, b)
+        new_el = el.Arc(center, a=a, b=b)
         x, y = new_el.intersect(orth1)
         new_el.tp = (x,y)
         x, y = new_el.intersect(orth2)

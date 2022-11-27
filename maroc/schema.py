@@ -52,10 +52,10 @@ class Schema:
         lcenter = (390, 100)
         rcenter = (390, 300)
         # initialize borders
-        sw = el.Arc(lcenter, left, base)
-        se = el.Arc(rcenter, right, base)
-        nw = el.Arc(rcenter, top, left)
-        ne = el.Arc(lcenter, top, right)
+        sw = el.Arc(lcenter, top_point=left, bottom_point=base)
+        se = el.Arc(rcenter, top_point=right, bottom_point=base)
+        nw = el.Arc(rcenter, top_point=top, bottom_point=left)
+        ne = el.Arc(lcenter, top_point=top, bottom_point=right)
         return sw, se, nw, ne
 
     def _gen_middle(
@@ -65,13 +65,13 @@ class Schema:
         top_ort:el.Arc, 
         bot_ort:el.Arc, 
         multi:float=0.5
-    ) -> el.Oval:
+    ) -> el.Arc:
         x = self._mid_val(top_para.center[0], bot_para.center[0], multi)
         y = self._mid_val(top_para.center[1], bot_para.center[1], multi)
         center = (x,y)
         a = self._mid_val(top_para.a, bot_para.a, multi)
         b = self._mid_val(top_para.b, bot_para.b, multi)
-        new_ellipse = el.Oval(center, a, b)
+        new_ellipse = el.Arc(center, a=a, b=b)
         x, y = self._find_ellipses_intersection(new_ellipse, top_ort)
         new_ellipse.tp = (x,y)
         x, y = self._find_ellipses_intersection(new_ellipse, bot_ort)
@@ -83,73 +83,4 @@ class Schema:
         valmax = max(a,b)
         return float(valmin) + (valmax - valmin) * multi
 
-    def _find_ellipses_intersection(
-        self, 
-        ell1:el.Oval, 
-        ell2:el.Oval
-    ) -> Tuple[float]:
-        # convert the ellipses into a list of points
-        a, b = self._ellipse_polyline(
-            [(ell1.center[0], ell1.center[1], ell1.a, ell1.b, 0), 
-            (ell2.center[0], ell2.center[1], ell2.a, ell2.b, 0)]
-        )
-        # find the intersection points between the two ellipses
-        x, y = self._intersections(a, b)
-        # find the point that is between the two limit points of ell2
-        x, y = self._sel_good_point(x, y, ell2)
-        return x, y
-
-
-    # ?
-
-
-    def _sel_good_point(
-        self, 
-        x:List[float], 
-        y:List[float], 
-        ell2:el.Oval
-    ) -> Tuple[float]:
-        """find the point that is between the two limit points of ell2
-        """
-        xmin = min(ell2.tp[0], ell2.bp[0])
-        xmax = max(ell2.tp[0], ell2.bp[0])
-        ymin = min(ell2.tp[1], ell2.bp[1])
-        ymax = max(ell2.tp[1], ell2.bp[1])
-        for i in range(len(x)):
-            xi = x[i]
-            yi = y[i]
-            if xi <= xmax and xi >= xmin and yi <= ymax and yi >= ymin:
-                x = xi
-                y = yi
-                break
-        # assert type of x is float
-        assert type(x) is float, "x is not a float"
-        return x, y
-
-    def _ellipse_polyline(self, ellipses, n=100):
-        t = np.linspace(0, 2*np.pi, n, endpoint=False)
-        st = np.sin(t)
-        ct = np.cos(t)
-        result = []
-        for x0, y0, a, b, angle in ellipses:
-            angle = np.deg2rad(angle)
-            sa = np.sin(angle)
-            ca = np.cos(angle)
-            p = np.empty((n, 2))
-            p[:, 0] = x0 + a * ca * ct - b * sa * st
-            p[:, 1] = y0 + a * sa * ct + b * ca * st
-            result.append(p)
-        return result
-
-    def intersections(self,a, b):
-        ea = LinearRing(a)
-        eb = LinearRing(b)
-        mp = ea.intersection(eb)
-        try:
-            x = [p.x for p in mp]
-            y = [p.y for p in mp]
-        except:
-            print("no intersection")
-            plt.plot(a[:,0], a[:,1])
-            plt.plot(b[:,0], b[:,1])
-        return x, y
+    

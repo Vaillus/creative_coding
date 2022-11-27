@@ -74,7 +74,10 @@ class Triangulation:
         # remove the factice points from the points
         self.points = [p for p in self.points if p not in self.factice_points]
         # substract all point ids by the number of factice points in the triangles
-        self.triangles = [(t[0] - len(self.factice_points), t[1] - len(self.factice_points), t[2] - len(self.factice_points)) for t in self.triangles]
+        self.triangles = [
+            (t[0] - len(self.factice_points), t[1] - len(self.factice_points), 
+            t[2] - len(self.factice_points)) for t in self.triangles
+        ]
 
     def _make_container_triangle(self):
         # create two other points such that the triangle formed by the three points

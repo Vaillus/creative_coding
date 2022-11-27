@@ -48,13 +48,13 @@ def ellipse_polyline(ellipses, n=100):
         result.append(p)
     return result
 
-def sel_good_point(x:List[float], y:List[float], ell2:el.Oval) -> Tuple[float]:
+def sel_good_point(x:List[float], y:List[float], ell2:el.Arc) -> Tuple[float]:
     """find the point that is between the two limit points of ell2
 
     Args:
         x (List[float]): 
         y (List[float]): 
-        ell2 (el.Oval):
+        ell2 (el.Arc):
 
     Returns:
         Tuple[float]: 
@@ -74,7 +74,7 @@ def sel_good_point(x:List[float], y:List[float], ell2:el.Oval) -> Tuple[float]:
     assert type(x) is float, "x is not a float"
     return x, y
 
-def find_ellipses_intersection(ell1:el.Oval, ell2:el.Oval) -> Tuple[float]:
+def find_ellipses_intersection(ell1:el.Arc, ell2:el.Arc) -> Tuple[float]:
     # convert the ellipses into a list of points
     a, b = ellipse_polyline(
         [(ell1.center[0], ell1.center[1], ell1.a, ell1.b, 0), 
@@ -103,7 +103,7 @@ def gen_middle(
     center = (x,y)
     a = mid_val(top_para.a, bot_para.a, multi)
     b = mid_val(top_para.b, bot_para.b, multi)
-    new_ellipse = el.Oval(center, a, b)
+    new_ellipse = el.Arc(center, a, b)
     x, y = find_ellipses_intersection(new_ellipse, top_ort)
     new_ellipse.tp = (x,y)
     x, y = find_ellipses_intersection(new_ellipse, bot_ort)
