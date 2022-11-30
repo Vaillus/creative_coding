@@ -3,7 +3,7 @@ import ellipse as el
 import numpy as np
 import matplotlib.pyplot as plt
 from shapely.geometry.polygon import LinearRing
-from typing import Tuple, List
+from typing import Tuple, List, Generator
 
 def mid_val(a,b,multi=0.5):
     valmin = min(a,b)
@@ -39,7 +39,7 @@ class Losange:
         self.generate_inner_borders()
         self.generate_lines()
 
-    def get_outline(self) -> el.Arc:
+    def get_outline(self) -> Generator[el.Arc, None, None]:
         """Genreator for getting the four arcs of the losange"""
         for arc in [self.inw, self.ine, self.isw, self.ise]:
             yield arc
@@ -49,8 +49,8 @@ class Losange:
         given arc"""
         new_arc = el.Arc(
             tuple(np.array(arc.center) + np.array(rel_pos)),
-            tuple(np.array(arc.tp) + np.array(rel_pos)),
-            tuple(np.array(arc.bp) + np.array(rel_pos))
+            top_point=tuple(np.array(arc.tp) + np.array(rel_pos)),
+            bottom_point=tuple(np.array(arc.bp) + np.array(rel_pos))
         )
         return new_arc
 
@@ -135,16 +135,28 @@ class Losange:
             for line in self.lines:
                 line.render(img, color, bold=bold)
     
-    def get_points(self, n_points:int) -> List[Tuple[int, int]]:
+    def get_points(self, n_points:int=10) -> List[Tuple[float, float]]:
         """Returns the points of the losange"""
         # TODO : handle the case with the middle lines
         points = []
         for arc in self.get_outline():
             arc_points = arc.get_points(n_points=n_points)
-            points.append(arc_points)
+            points += arc_points
+        points = list(set(points))
         return points
+    
+    def get_points_edges(
+        self, 
+        n_points:int=10
+    ) -> Tuple[List[Tuple[float, float]], List[Tuple[int, int]]]:
+        points = self.get_points(n_points=n_points)
+        points = sort_points_clockwise(points)
+        edges = []
+        for i in range(len(points)):
+            edges.append((i, (i+1)%len(points)))
+        return points, edges
 
-def sort_points_clockwise(points:List[Tuple[float]]) -> List[Tuple[float]]:
+def sort_points_clockwise(points:List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     # sort the points clockwise
     # set the center as the mean of the points
     center = np.mean(points, axis=0)

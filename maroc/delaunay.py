@@ -4,74 +4,100 @@ import random
 import math
 
 class Triangulation:
-    def __init__(self, points: List[Tuple[float]]):
+    def __init__(self, points: List[Tuple[float, float]]):
         # check that not two points are the same
         assert len(points) == len(set(points)), "Two points are the same"
         self.points_to_add = points
         self.points = []
         self.factice_points = []
         self.edges: List[Tuple[int]] = [] # Contains the indices of the points
-        self.triangles: List[Tuple[int]] = [] # Contains the indices of the edges
+        self.triangles: List[Tuple[int, int, int]] = [] # Contains the indices of the edges
         self.tolerance = 1e-6
 
-    def plot(self):
-        """plot the points and the edges of triangles"""
-        plt.scatter(*zip(*self.points))
-        for tri in self.triangles:
-            # plot the three edges of the triangle separately
-            for edge in self._triangle_to_edges(tri):
-                plt.plot(*zip(*[self.points[edge[0]], self.points[edge[1]]]), color='black')
-        plt.show()
-    
-    def delaunay(self):
+
+
+    # === main function ================================================
+
+
+
+
+    def __call__(self):
         """
         Compute the Delaunay triangulation of the points.
         """
         # create the initial triangulation
         self._make_container_triangle()
         for point in self.points_to_add:
-            tri = self.what_triangle(point)
-            # add the point to the triangulation
-            self.points.append(point)
-            point_id = len(self.points) - 1
-            edge = self._find_edge_if_one(tri, point)
-            if edge == []:
-                # add the edges of the triangle to the triangulation
-                # init_trln.edges.append((tri[0], point_id))
-                # init_trln.edges.append((tri[1], point_id))
-                # init_trln.edges.append((tri[2], point_id))
-                # add the triangles to the triangulation
-                self.triangles.append((tri[0], tri[1], point_id))
-                self.triangles.append((tri[1], tri[2], point_id))
-                self.triangles.append((tri[2], tri[0], point_id))
-                # remove the triangle from the triangulation
-                self.triangles.remove(tri)
-                # legalize the edges of the triangulation
-                self._legalize_edge(point_id, (tri[0], tri[1]))
-                self._legalize_edge(point_id, (tri[1], tri[2]))
-                self._legalize_edge(point_id, (tri[2], tri[0]))
-            else:
-                # get the point of the triangle that is not on the edge
-                other_point = [p for p in tri if p not in edge][0]
-                # add the triangles to the triangulation
-                self.triangles.append((edge[0], other_point, point_id))
-                self.triangles.append((edge[1], other_point, point_id))
-                # remove the triangle from the triangulation
-                self.triangles.remove(tri)
-                # legalize the edges of the triangulation
-                self._legalize_edge(point_id, (edge[0], other_point))
-                self._legalize_edge(point_id, (edge[1], other_point))
+            self.add_point(point)
         # remove the triangles that contain a factice point
-        to_remove = []
-        for tri_id, tri in enumerate(self.triangles):
-            for point_id in tri:
-                if self.points[point_id] in self.factice_points:
-                    print(tri_id)
-                    to_remove.append(tri_id)
-                    break
-        for tri_id in reversed(to_remove):
-            self.triangles.pop(tri_id)
-        # remove the factice points from the points
+        self.triangles = [tri for tri in self.triangles if not self._contains_factice_point(tri)]
+        self._remove_factice_points()
+
+    def add_point(self, point: tuple[float, float]):
+        """
+        Add a point to the triangulation.
+        """
+        tri = self.what_triangle(point)
+        # add the point to the triangulation
+        self.points.append(point)
+        point_id = len(self.points) - 1
+        edge = self._find_edge_if_one(tri, point)
+        # check whether the tuple is empty or not
+        if len(edge) == 0:
+            self._add_point_in_triangle(point_id, tri)
+        else:
+            self._add_point_on_edge(point_id, edge, tri)
+    
+    def _add_point_in_triangle(
+        self, 
+        point_id: int, 
+        tri: tuple[int, int, int]
+    ) -> None:
+        """
+        Add a point in a triangle.
+        """
+        # add the triangles to the triangulation
+        self.triangles.append((tri[0], tri[1], point_id))
+        self.triangles.append((tri[1], tri[2], point_id))
+        self.triangles.append((tri[2], tri[0], point_id))
+        # remove the triangle from the triangulation
+        self.triangles.remove(tri)
+        # legalize the edges of the triangulation
+        self._legalize_edge(point_id, (tri[0], tri[1]))
+        self._legalize_edge(point_id, (tri[1], tri[2]))
+        self._legalize_edge(point_id, (tri[2], tri[0]))
+    
+    def _add_point_on_edge(
+        self, 
+        point_id: int, 
+        edge: tuple[int, int], 
+        tri: tuple[int, int, int]
+    ) -> None:
+        """
+        Add a point on an edge.
+        """
+        # get the point of the triangle that is not on the edge
+        other_point = [p for p in tri if p not in edge][0]
+        # add the triangles to the triangulation
+        self.triangles.append((edge[0], other_point, point_id))
+        self.triangles.append((edge[1], other_point, point_id))
+        # remove the triangle from the triangulation
+        self.triangles.remove(tri)
+        # legalize the edges of the triangulation
+        self._legalize_edge(point_id, (edge[0], other_point))
+        self._legalize_edge(point_id, (edge[1], other_point))
+        
+
+    def _contains_factice_point(self, tri: tuple[int, int, int]) -> bool:
+        """
+        Check if the triangle contains a factice point.
+        """
+        for point_id in tri:
+            if self.points[point_id] in self.factice_points:
+                return True
+        return False
+
+    def _remove_factice_points(self):
         self.points = [p for p in self.points if p not in self.factice_points]
         # substract all point ids by the number of factice points in the triangles
         self.triangles = [
@@ -101,16 +127,22 @@ class Triangulation:
         self.factice_points.append(fict_point_2)
         self.triangles.append((0, 1, 2))
 
-    def what_triangle(self, point: tuple[float]) -> int:
+    def what_triangle(self, point: tuple[float, float]) -> Tuple[int, int, int]:
         """
         Find the triangle that contains the point.
         """
         for tri in self.triangles:
             if self._is_in_triangle(point, tri):
                 return tri
+        # plot very big point
+        plt.scatter(point[0], point[1], color='red', s=100)
         raise ValueError("The point is not in any triangle")
     
-    def _is_in_triangle(self, point: tuple[float], triangle: tuple[int]) -> bool:
+    def _is_in_triangle(
+        self, 
+        point: tuple[float, float], 
+        triangle: tuple[int, int, int]
+    ) -> bool:
         """
         Check if the point is in the triangle.
         """
@@ -128,17 +160,21 @@ class Triangulation:
         # add a tolerance of order 1e-4
         return abs(area - (area1 + area2 + area3)) < self.tolerance
     
-    def _find_edge_if_one(self, triangle: tuple[int], point: tuple[float]) -> tuple[int]:
+    def _find_edge_if_one(
+        self, 
+        triangle: tuple[int, int, int], 
+        point: tuple[float, float]
+    ) -> tuple[int, int]:
         """
         Find the edge of the triangle that contains the point.
         """
         for edge in self._triangle_to_edges(triangle):
             if self._is_on_edge(point, edge):
                 return edge
-        return []
+        return tuple()
 
 
-    def _is_on_edge(self, point: tuple[float], edge: tuple[int]) -> bool:
+    def _is_on_edge(self, point: tuple[float, float], edge: tuple[int, int]) -> bool:
         """
         Check if the point is on the edge.
         """
@@ -150,7 +186,7 @@ class Triangulation:
         is_on_edge = (area <= self.tolerance)
         return is_on_edge
 
-    def _area(self, points: list[tuple[float]]) -> float:
+    def _area(self, points: list[tuple[float, float]]) -> float:
         """
         Compute the area of the triangle formed by the points.
         """
@@ -162,7 +198,7 @@ class Triangulation:
             ) / 2.0
         )
 
-    def _legalize_edge(self, point_id: int, edge: tuple[int]):
+    def _legalize_edge(self, point_id: int, edge: tuple[int, int]):
         """
         Legalize the edge of the triangulation.
         """
@@ -194,20 +230,17 @@ class Triangulation:
             self._legalize_edge(point_id, (opp_point_id, edge[0]))
             self._legalize_edge(point_id, (opp_point_id, edge[1]))
 
-    def _flip_edge(self, point_id: int, edge: tuple[int], opp_point_id: int):
+    def _flip_edge(self, point_id: int, edge: tuple[int, int], opp_point_id: int):
         """
         Flip the edge of the triangulation.
         """
         # remove the triangles that contain the edge
-        for tri in self.triangles:
-            if edge[0] in tri and edge[1] in tri:
-                self.triangles.remove(tri)
-        # add the new triangles
+        self.triangles = [tri for tri in self.triangles \
+            if not((edge[0] in tri) and (edge[1]  in tri))]
         self.triangles.append((point_id, edge[0], opp_point_id))
         self.triangles.append((point_id, edge[1], opp_point_id))
 
-
-    def _is_legal(self, point_id: int, edge: tuple[int], opp_point_id: int) -> bool:
+    def _is_legal(self, point_id: int, edge: tuple[int, int], opp_point_id: int) -> bool:
         """
         Check if the edge is legal.
         """
@@ -234,17 +267,74 @@ class Triangulation:
         )
         return ang
 
-    def _triangle_to_edges(self, triangle: tuple[int]) -> tuple[tuple[int]]:
+    def _triangle_to_edges(
+        self, 
+        triangle: tuple[int, int, int]
+    ) -> tuple[tuple[int, int], tuple[int, int], tuple[int, int]]:
         """
         Convert a triangle to its edges.
         """
-        return ((triangle[0], triangle[1]), (triangle[1], triangle[2]), (triangle[2], triangle[0]))
+        return (
+            (triangle[0], triangle[1]), 
+            (triangle[1], triangle[2]), (triangle[2], triangle[0])
+        )
+    
+    def get_edges(self) -> list[tuple[int, int]]:
+        """
+        Get the edges of the triangulation.
+        """
+        edges = []
+        # TODO : I could optimize this if things get too slow.
+        for triangle in self.triangles:
+            edges.extend(self._triangle_to_edges(triangle))
+        edges = list(set(edges))
+        return edges
+
+
+
+
+
+    # === plotting functions ===========================================
+
+
+
+
+
+    def plot(self):
+        """plot the points and the edges of triangles"""
+        plt.scatter(*zip(*self.points))
+        for tri in self.triangles:
+            # plot the three edges of the triangle separately
+            for edge in self._triangle_to_edges(tri):
+                plt.plot(*zip(*[self.points[edge[0]], self.points[edge[1]]]), color='black')
+        #plt.show()
+    
+    def plot_red_triangle(self, tri: tuple[int, int, int], point: tuple[float, float]):
+        self.plot()
+        plt.scatter(point[0], point[1], color='red', s=100)
+        for edge in self._triangle_to_edges(tri):
+            plt.plot(*zip(*[self.points[edge[0]], self.points[edge[1]]]), color='red')
+    
+    def plot_last3trianlges(self):
+        self.plot()
+        for tri in self.triangles[-3:]:
+            for edge in self._triangle_to_edges(tri):
+                plt.plot(*zip(*[self.points[edge[0]], self.points[edge[1]]]), color='red')
+
+    def plot_red_edge(self, edge: tuple[int, int]):
+        self.plot()
+        plt.plot(*zip(*[self.points[edge[0]], self.points[edge[1]]]), color='red')
+    
+    def plot_red_point(self, point: tuple[float, float]):
+        self.plot()
+        plt.scatter(point[0], point[1], color='red', s=100)
+
 
 
 
 if __name__ == "__main__":
     # create a random set of points
-    points = [(random.random(), random.random()) for _ in range(10)]
+    points = [(random.random(), random.random()) for _ in range(100)]
     tri  = Triangulation(points)
     tri.delaunay()
     tri.plot()
