@@ -7,12 +7,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class Schema:
-    def __init__(self):
+    def __init__(self, n_mid_arcs: int):
         self.points : List[float] = []
         self.segments : List[Tuple[int, int]] = []
         self.triangles : List[int, int, int] = []
         self.outline = None
         self.inner_los = None
+        self.n_mid_arcs = n_mid_arcs
 
     def get_list_points(self):
         sw, se, nw, ne = self._init_outline()
@@ -30,18 +31,18 @@ class Schema:
                 points += losange.get_points(10)
         return points
     
-    def get_points_edges(self):
+    def get_points_edges(self, n_points: int) -> Tuple[List[float], List[Tuple[int, int]]]:
         sw, se, nw, ne = self._init_outline()
         md, mg = self._create_arcs(sw, se, nw, ne)
         points, edges = [], []
         outline = lo.Losange(sw, se, nw, ne, relative=True, pad=0.15)
-        out_points, out_edges = outline.get_points_edges(10)
+        out_points, out_edges = outline.get_points_edges(n_points)
         points += out_points
         edges += out_edges
         for i in range(len(md)-1):
             for j in range(len(mg)-1):
                 losange = lo.Losange(mg[i], md[j], md[j+1], mg[i+1], pad=0.15)
-                los_points, los_edges = losange.get_points_edges(10)
+                los_points, los_edges = losange.get_points_edges(n_points)
                 # add len(points) to each value in los_edges
                 los_edges = [tuple([x+len(points) for x in edge]) for edge in los_edges]
                 points += los_points
@@ -49,17 +50,16 @@ class Schema:
         return points, edges
 
     def _create_arcs(self, sw, se, nw, ne):
-        n_mid_arcs = 1
         md: List[el.Arc] = [ne]
         mg = [nw]
         offset = 0.1
         # create the middle arcs
-        for i in reversed(range(0, n_mid_arcs)):
+        for i in reversed(range(0, self.n_mid_arcs)):
             if offset == 0 and i == 0:
                 continue
-            mid = lo.Losange.gen_middle(ne,sw, nw, se, (i+offset)/n_mid_arcs)
+            mid = lo.Losange.gen_middle(ne,sw, nw, se, (i+offset)/self.n_mid_arcs)
             md += [mid]
-            mid2 = lo.Losange.gen_middle(nw, se, ne,sw, (i+offset)/n_mid_arcs)
+            mid2 = lo.Losange.gen_middle(nw, se, ne,sw, (i+offset)/self.n_mid_arcs)
             mg+= [mid2]
         md += [sw]
         mg += [se]
@@ -96,8 +96,8 @@ class Schema:
 
 if __name__ == "__main__":
     print("coucou")
-    schema = Schema()
-    vertices, segments = schema.get_points_edges()
+    schema = Schema(n_mid_arcs=4)
+    vertices, segments = schema.get_points_edges(10)
     # plot the points
     assert len(vertices) == len(set(vertices))
     #points=list(set(points))
@@ -106,6 +106,13 @@ if __name__ == "__main__":
     # tri.delaunay()
     # tri.plot()
     # ===
+    # from scipy.spatial import Delaunay
+    # tri = Delaunay(vertices)
+    # import matplotlib.pyplot as plt
+    # vertices = np.array(vertices)
+    # plt.triplot(vertices[:,0], vertices[:,1], tri.simplices)
+    # plt.plot(vertices[:,0], vertices[:,1], 'o')
+    # plt.show()
     re = Refinement(vertices, segments)
     re()
 

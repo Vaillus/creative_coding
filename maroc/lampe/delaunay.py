@@ -37,6 +37,11 @@ class Triangulation:
         """
         Add a point to the triangulation.
         """
+        # check that the point is not already in the triangulation
+        if point in self.points:
+            print(f"Point {point} is already in the triangulation")
+            return
+        # assert point not in self.points, "The point is already in the triangulation"
         tri = self.what_triangle(point)
         # add the point to the triangulation
         self.points.append(point)
@@ -54,7 +59,9 @@ class Triangulation:
         tri: tuple[int, int, int]
     ) -> None:
         """
-        Add a point in a triangle.
+        1. First, we add the three new triangles to the triangulation.
+        2. Then, we remove the triangle from the triangulation.
+        3. Finally, we legalize the edges of the triangulation. 
         """
         # add the triangles to the triangulation
         self.triangles.append((tri[0], tri[1], point_id))
@@ -112,9 +119,9 @@ class Triangulation:
         x_max = max(self.points_to_add, key=lambda p: p[0])[0]
         y_min  = min(self.points_to_add, key=lambda p: p[1])[1]
         y_max = max(self.points_to_add, key=lambda p: p[1])[1]
-        max_point = (x_max, y_max)
-        fict_point_1 = (x_min - 2 * (x_max - x_min), y_max)
-        fict_point_2 = (x_max, y_min - 2 * (y_max - y_min))
+        max_point = (2 * x_max, 2 * y_max)
+        fict_point_1 = (x_min - 6 * (x_max - x_min), 2 * y_max)
+        fict_point_2 = (2 * x_max, y_min - 6 * (y_max - y_min))
         # check if max_point is already in the points to add
         if max_point in self.points_to_add:
             self.points_to_add.remove(max_point)
@@ -131,18 +138,25 @@ class Triangulation:
         """
         Find the triangle that contains the point.
         """
+        min_diff = 1e6
+        best_triangle = None
         for tri in self.triangles:
-            if self._is_in_triangle(point, tri):
+            is_in, diff = self._is_in_triangle(point, tri) 
+            if is_in:
                 return tri
+            if diff < min_diff:
+                min_diff = diff
+                best_triangle = tri
+            
         # plot very big point
-        plt.scatter(point[0], point[1], color='red', s=100)
+        self.plot_red_triangle(best_triangle, point)
         raise ValueError("The point is not in any triangle")
     
     def _is_in_triangle(
         self, 
         point: tuple[float, float], 
         triangle: tuple[int, int, int]
-    ) -> bool:
+    ) -> Tuple[bool, float]:
         """
         Check if the point is in the triangle.
         """
@@ -158,7 +172,8 @@ class Triangulation:
         # and the vertices of the triangle is equal to the area of the 
         # triangle, then the point is in the triangle
         # add a tolerance of order 1e-4
-        return abs(area - (area1 + area2 + area3)) < self.tolerance
+        diff = abs(area - (area1 + area2 + area3))
+        return diff < self.tolerance, diff
     
     def _find_edge_if_one(
         self, 
@@ -255,16 +270,19 @@ class Triangulation:
         """
         Compute the angle formed by the points.
         """
+        assert self.points[point1] != self.points[point2], "The points \
+        are at the same location."
         x1, y1 = self.points[point1][0] - self.points[sommet][0], \
             self.points[point1][1] - self.points[sommet][1]
         x2, y2 = self.points[point2][0] - self.points[sommet][0], \
             self.points[point2][1] - self.points[sommet][1]
-        ang = math.acos(
-            (x1 * x2 + y1 * y2) / (
-                math.sqrt(x1 ** 2 + y1 ** 2) * \
-                math.sqrt(x2 ** 2 + y2 ** 2)
-            )
-        )
+        val = (x1 * x2 + y1 * y2) / (math.sqrt(x1**2 + y1**2) * math.sqrt(x2**2 + y2**2))
+        # check if the value is between -1 and 1
+        if val > 1:
+            val = 1
+        elif val < -1:
+            val = -1
+        ang = math.acos(val)
         return ang
 
     def _triangle_to_edges(
@@ -289,6 +307,36 @@ class Triangulation:
             edges.extend(self._triangle_to_edges(triangle))
         edges = list(set(edges))
         return edges
+    
+    def tri_min_angle(self, tri:Tuple[int, int, int]) -> float:
+        """
+        Get the minimum angle of a triangle.
+        """
+        angles = []
+        for i in range(3):
+            angles.append(self._angle(tri[i], tri[(i+1)%3], tri[(i+2)%3]))
+        return min(angles)
+    
+    def tri_circumcenter(self, tri:Tuple[int, int, int]) -> Tuple[float, float]:
+        """
+        Get the circumcenter of a triangle. not the baricenter !!! 
+        It can be outside the triangle.
+        """
+        a = self.points[tri[0]]
+        b = self.points[tri[1]]
+        c = self.points[tri[2]]
+        d = 2*(a[0]*(b[1]-c[1]) + b[0]*(c[1]-a[1]) + c[0]*(a[1]-b[1]))
+        x = (
+            (a[0]**2 + a[1]**2)*(b[1]-c[1]) + 
+            (b[0]**2 + b[1]**2)*(c[1]-a[1]) + 
+            (c[0]**2 + c[1]**2)*(a[1]-b[1])
+        )/d
+        y = (
+            (a[0]**2 + a[1]**2)*(c[0]-b[0]) + 
+            (b[0]**2 + b[1]**2)*(a[0]-c[0]) +
+            (c[0]**2 + c[1]**2)*(b[0]-a[0])
+        )/d
+        return (x, y)
 
 
 
@@ -312,8 +360,10 @@ class Triangulation:
     def plot_red_triangle(self, tri: tuple[int, int, int], point: tuple[float, float]):
         self.plot()
         plt.scatter(point[0], point[1], color='red', s=100)
-        for edge in self._triangle_to_edges(tri):
-            plt.plot(*zip(*[self.points[edge[0]], self.points[edge[1]]]), color='red')
+        for i in range(3):
+            plt.plot(*zip(*[self.points[tri[i]], self.points[tri[(i+1)%3]]]), color='red')
+        # for edge in self._triangle_to_edges(tri):
+        #     plt.plot(*zip(*[self.points[edge[0]], self.points[edge[1]]]), color='red')
     
     def plot_last3trianlges(self):
         self.plot()
@@ -335,6 +385,8 @@ class Triangulation:
 if __name__ == "__main__":
     # create a random set of points
     points = [(random.random(), random.random()) for _ in range(100)]
+    from scipy.spatial import Delaunay
+    tri = Delaunay(points)
     tri  = Triangulation(points)
     tri.delaunay()
     tri.plot()

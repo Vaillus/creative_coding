@@ -197,6 +197,7 @@ class Arc():
         color: Tuple[int], 
         bold:bool
     ) -> None:
+        """ Only way I found to draw big points"""
         if bold:
             cv2.circle(
                 img, 
