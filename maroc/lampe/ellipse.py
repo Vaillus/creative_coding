@@ -207,33 +207,40 @@ class Arc():
                 -1
             )
     
-    def get_points(self, n_points:int) -> List[Tuple[float]]:
+    def get_points(self, n_points:int, clockwise:bool=True) -> List[Tuple[float]]:
         """return n_point points on the ellipse between top and bottom points
+        clockwise or counter-clockwise.
         """
-        # # ! absolutely not sure that it is going to work
-        # start_x = min(self.tp[0], self.bp[0])
-        # end_x = max(self.tp[0], self.bp[0])
-        # points = []
-        # for i in range(n_points):
-        #     x = start_x + (i * (end_x - start_x) / (n_points - 1))
-        #     # y is the value of the ellipse at x, given the center is self.center
-        #     y = self.b * np.sqrt(1 - ((x - self.center[0])/self.a)**2) + self.center[1]
-        #     points.append((x, y))
-
         # compute the angle of the top and bottom points
         angle_tp = self.convert_point_rad(self.tp)
         angle_bp = self.convert_point_rad(self.bp)
-        # plot lines goin from center and going in the direction of the top and bottom points
-        # use the ang_tp and ang_bp to compute the angle of the line
-
-        # get the n_points intermediate angles between the two angles, using the
-        # sortest path on the circle
-        # generat angle from 0 to 2pi
-        #angles = np.linspace(0, 2*np.pi, 100)
-        angles = np.linspace(angle_tp, angle_bp, n_points)
-        #angle = np.linspace(angle_tp, angle_bp, n_points)
-        # convert the angles to points
+        angles = gen_smallest_arc(angle_tp, angle_bp, n_points, clockwise=clockwise)
+        # sample angles clockwise or counter-clockwise
+        # since the points should not pass through the origin (0 or 2pi),
+        # we can do it the lazy way. 
+        # min_angle = min(angle_tp, angle_bp)
+        # max_angle = max(angle_tp, angle_bp)
+        # if clockwise:
+        #     angles = np.linspace(max_angle, min_angle, n_points)
+        # else:
+        #     angles = np.linspace(min_angle, max_angle, n_points)
+        # convert the angles back to points coordinates
         points = self.convert_rad_point(angles)
         return points
+
+def gen_smallest_arc(ang1, ang2, n_points, clockwise):
+    ang_sub = min(ang1, ang2)
+    ang1 -= ang_sub
+    ang2 -= ang_sub
+    not_zero_ang = max(ang1, ang2)
+    from_start = not_zero_ang <= np.pi 
+    if not from_start:
+        angs = np.linspace(not_zero_ang, 2*np.pi, n_points)
+    else:
+        angs = np.linspace(0.0, not_zero_ang, n_points)
+    angs += ang_sub
+    if clockwise:
+        angs = np.flip(angs)
+    return angs
 
     

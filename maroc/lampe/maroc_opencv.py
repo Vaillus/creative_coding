@@ -26,8 +26,6 @@ def sort_points_clockwise(points:List[Tuple[float]]) -> List[Tuple[float]]:
     return points
 
 def base():
-    # initialize image
-    
     sw, se, nw, ne = init_borders()
     T = 50
     t = 0
@@ -46,7 +44,6 @@ def base():
         n_mid_arcs = 4
         md = [ne]
         mg = [nw]
-
         for i in reversed(range(0, n_mid_arcs)):
             if offset == 0 and i == 0:
                 continue
@@ -97,15 +94,29 @@ def init_borders() -> Tuple[el.Arc]:
     ne = el.Arc(lcenter, top_point=top, bottom_point=right)
     return sw, se, nw, ne
     
-def gen_middle(top_para:el.Arc, bot_para:el.Arc, top_ort:el.Arc, bot_ort:el.Arc, multi=0.5):
+def gen_middle(
+    top_para:el.Arc, 
+    bot_para:el.Arc, 
+    top_ort:el.Arc, 
+    bot_ort:el.Arc, 
+    multi=0.5
+) -> el.Arc:
+    """ Generate the middle arc between two parallel arcs and two 
+    orthogonal arcs
+    """
+    # find the center of the ellipse
     x = mid_val(top_para.center[0], bot_para.center[0], multi)
     y = mid_val(top_para.center[1], bot_para.center[1], multi)
     center = (x,y)
+    # find the two values of axi of the ellipse
     a = mid_val(top_para.a, bot_para.a, multi)
     b = mid_val(top_para.b, bot_para.b, multi)
+    # gererate the ellipse object
     new_ellipse = el.Arc(center, a=a, b=b)
+    # compute the top point of the ellipse
     x, y = find_ellipses_intersection(new_ellipse, top_ort)
     new_ellipse.tp = (x,y)
+    # compute the bottom point of the ellipse
     x, y = find_ellipses_intersection(new_ellipse, bot_ort)
     new_ellipse.bp = (x,y)
     return new_ellipse

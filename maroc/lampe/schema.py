@@ -16,55 +16,60 @@ class Schema:
         self.n_mid_arcs = n_mid_arcs
 
     def get_list_points(self):
+        """ Get the list of points of the schema"""
+        # generate the four arcs of the outline
         sw, se, nw, ne = self._init_outline()
+        # generate the intermediate arcs and store all the arcs in two lists
+        # containing parallel arcs md is for "main droite" and mg for "main gauche"
+        # "main droite" would be the arcs that one breaks by doing Brice's trick 
+        # with the right hand.
         md, mg = self._create_arcs(sw, se, nw, ne)
-        
         # create the losanges and add the points of each losange to the list
         points = []
         # add the points of the outline
-        outline = lo.Losange(sw, se, nw, ne, relative=True, pad=0.15)
-        points += outline.get_points(10)
+        outline = lo.Losange(sw, se, nw, ne, relative=True, pad=0.05)
+        points += outline.get_points(10, outer=True)
         # create the inner losanges and add the points of each losange to the list
         for i in range(len(md)-1):
             for j in range(len(mg)-1):
-                losange = lo.Losange(mg[i], md[j], md[j+1], mg[i+1], pad=0.15)
+                losange = lo.Losange(mg[i], md[j], md[j+1], mg[i+1], pad=0.15, has_lines=True)
                 points += losange.get_points(10)
         return points
     
-    def get_points_edges(self, n_points: int) -> Tuple[List[float], List[Tuple[int, int]]]:
+    def get_points_edges(self, n_points: int, offset:float) -> Tuple[List[float], List[Tuple[int, int]]]:
+        """ Generate points and edges of the schema"""
+        assert offset >= 0 and offset <= 1
         sw, se, nw, ne = self._init_outline()
-        md, mg = self._create_arcs(sw, se, nw, ne)
+        outline = lo.Losange(nw, ne, sw, se, relative=True, pad=0.05)
+        md, mg = self._create_arcs(
+            outline.isw, 
+            outline.ise, 
+            outline.inw, 
+            outline.ine, 
+            offset
+        )
+        # md, mg = self._create_arcs(
+        #     sw, 
+        #     se, 
+        #     nw, 
+        #     ne, 
+        #     offset
+        # )
         points, edges = [], []
-        outline = lo.Losange(sw, se, nw, ne, relative=True, pad=0.15)
-        out_points, out_edges = outline.get_points_edges(n_points)
+        out_points, out_edges = outline.get_points_edges(n_points, outer=True)
         points += out_points
         edges += out_edges
         for i in range(len(md)-1):
             for j in range(len(mg)-1):
-                losange = lo.Losange(mg[i], md[j], md[j+1], mg[i+1], pad=0.15)
+                losange = lo.Losange(mg[i], md[j], md[j+1], mg[i+1], relative = True, pad=0.15)
                 los_points, los_edges = losange.get_points_edges(n_points)
                 # add len(points) to each value in los_edges
                 los_edges = [tuple([x+len(points) for x in edge]) for edge in los_edges]
                 points += los_points
                 edges += los_edges
+        self.points = points
+        self.segments = edges
         return points, edges
-
-    def _create_arcs(self, sw, se, nw, ne):
-        md: List[el.Arc] = [ne]
-        mg = [nw]
-        offset = 0.1
-        # create the middle arcs
-        for i in reversed(range(0, self.n_mid_arcs)):
-            if offset == 0 and i == 0:
-                continue
-            mid = lo.Losange.gen_middle(ne,sw, nw, se, (i+offset)/self.n_mid_arcs)
-            md += [mid]
-            mid2 = lo.Losange.gen_middle(nw, se, ne,sw, (i+offset)/self.n_mid_arcs)
-            mg+= [mid2]
-        md += [sw]
-        mg += [se]
-        return md, mg
-
 
     def _init_outline(self) -> Tuple[el.Arc, el.Arc, el.Arc, el.Arc]:
         # position variables
@@ -91,13 +96,36 @@ class Schema:
         ne = el.Arc(lcenter, top_point=top, bottom_point=right)
         return sw, se, nw, ne
 
+    def _create_arcs(self, sw, se, nw, ne, offset):
+        md: List[el.Arc] = [ne]
+        mg = [nw]
+        # offset = 0.1
+        # create the middle arcs
+        for i in reversed(range(0, self.n_mid_arcs)):
+            if offset == 0 and i == 0:
+                continue
+            mid = lo.Losange.gen_middle(ne,sw, nw, se, (i+offset)/self.n_mid_arcs)
+            md += [mid]
+            mid2 = lo.Losange.gen_middle(nw, se, ne,sw, (i+offset)/self.n_mid_arcs)
+            mg+= [mid2]
+        md += [sw]
+        mg += [se]
+        return md, mg
+
+    def plot(self):
+        assert self.points is not None and self.segments is not None
+        plt.plot([p[0] for p in self.points], [p[1] for p in self.points], 'o')
+        for s in self.segments:
+            plt.plot([self.points[s[0]][0], self.points[s[1]][0]], [self.points[s[0]][1], self.points[s[1]][1]])
+        plt.show()
+
 
 
 
 if __name__ == "__main__":
     print("coucou")
     schema = Schema(n_mid_arcs=4)
-    vertices, segments = schema.get_points_edges(10)
+    vertices, segments = schema.get_points_edges(10, 0.01)
     # plot the points
     assert len(vertices) == len(set(vertices))
     #points=list(set(points))
@@ -110,9 +138,18 @@ if __name__ == "__main__":
     # tri = Delaunay(vertices)
     # import matplotlib.pyplot as plt
     # vertices = np.array(vertices)
+    # vertices = np.array(tri.points)
     # plt.triplot(vertices[:,0], vertices[:,1], tri.simplices)
     # plt.plot(vertices[:,0], vertices[:,1], 'o')
     # plt.show()
+    schema.plot()
     re = Refinement(vertices, segments)
     re()
+
+# import matplotlib.pyplot as plt
+# vertices = np.array(tri.points)
+# vertices = np.array(vertices)
+# plt.triplot(vertices[:,0], vertices[:,1], tri.simplices)
+# plt.plot(vertices[:,0], vertices[:,1], 'o')
+# plt.show()
 

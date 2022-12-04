@@ -1,8 +1,6 @@
 import ellipse as el
 
 import numpy as np
-import matplotlib.pyplot as plt
-from shapely.geometry.polygon import LinearRing
 from typing import Tuple, List, Generator
 
 def mid_val(a,b,multi=0.5):
@@ -29,32 +27,19 @@ class Losange:
         self.relative = relative
         self.pad = pad
         self.has_lines = has_lines
-        self.lines = None
+        self.lines = []
+        self.inner_losanges = []
         self.thickness = thickness
         
         self.inw = None
         self.ine = None
         self.isw = None
         self.ise = None
-        self.generate_inner_borders()
-        self.generate_lines()
+        self._generate_inner_borders()
+        self._generate_lines()
+        self._generate_inner_losanges()
 
-    def get_outline(self) -> Generator[el.Arc, None, None]:
-        """Genreator for getting the four arcs of the losange"""
-        for arc in [self.inw, self.ine, self.isw, self.ise]:
-            yield arc
-    
-    def gen_relative_arc(self, arc: el.Arc, rel_pos:List[int]) -> el.Arc:
-        """Generate an arc with specified relative position to the 
-        given arc"""
-        new_arc = el.Arc(
-            tuple(np.array(arc.center) + np.array(rel_pos)),
-            top_point=tuple(np.array(arc.tp) + np.array(rel_pos)),
-            bottom_point=tuple(np.array(arc.bp) + np.array(rel_pos))
-        )
-        return new_arc
-
-    def generate_inner_borders(self):
+    def _generate_inner_borders(self):
         # generate the ovals that are inside the losange
         # copy onw into self.inw
         if self.relative:
@@ -71,9 +56,7 @@ class Losange:
             self.ine = self.gen_relative_arc(self.one, [-1, -1])
             self.isw = self.gen_relative_arc(self.osw, [1, 1])
             self.ise = self.gen_relative_arc(self.ose, [-1, 1])
-
         # compute the intersection points between the inner ovals
-            
         self.inw.tp = self.inw.intersect(self.ine)
         self.inw.bp = self.inw.intersect(self.isw)
         self.ine.tp = self.ine.intersect(self.inw)
@@ -82,8 +65,8 @@ class Losange:
         self.isw.bp = self.isw.intersect(self.ise)
         self.ise.tp = self.ise.intersect(self.ine)
         self.ise.bp = self.ise.intersect(self.isw)
-
-    def generate_lines(self):
+    
+    def _generate_lines(self):
         """Generate three arcs equally spaced between inw and ise"""
         if self.has_lines:
             self.lines = []
@@ -116,6 +99,38 @@ class Losange:
         x, y = new_el.intersect(orth2)
         new_el.bp = (x,y)
         return new_el
+    
+    def gen_relative_arc(self, arc: el.Arc, rel_pos:List[int]) -> el.Arc:
+        """Generate an arc with specified relative position to the 
+        given arc"""
+        new_arc = el.Arc(
+            tuple(np.array(arc.center) + np.array(rel_pos)),
+            top_point=tuple(np.array(arc.tp) + np.array(rel_pos)),
+            bottom_point=tuple(np.array(arc.bp) + np.array(rel_pos))
+        )
+        return new_arc
+    
+    def _generate_inner_losanges(self):
+        if self.lines == []:
+            return
+        clines: List[el.Arc] = [self.inw]
+        for line in self.lines:
+            clines.append(line)
+        clines += [self.ise]
+        for i in range(len(clines)-1):
+            self.inner_losanges.append(Losange(
+                clines[i],
+                self.ine,
+                self.isw,
+                clines[i+1],
+                relative=True,
+                pad = 0.01,
+                has_lines=False
+            ))
+        
+    
+        
+
 
 
 
@@ -135,25 +150,65 @@ class Losange:
             for line in self.lines:
                 line.render(img, color, bold=bold)
     
-    def get_points(self, n_points:int=10) -> List[Tuple[float, float]]:
+    def get_points(self, n_points:int=10, outer:bool=False) -> List[Tuple[float, float]]:
         """Returns the points of the losange"""
         # TODO : handle the case with the middle lines
         points = []
-        for arc in self.get_outline():
-            arc_points = arc.get_points(n_points=n_points)
-            points += arc_points
-        points = list(set(points))
+        for id, arc in enumerate(self.get_outline(outer=outer)):
+            # the arcs are always called in the same order : nw, ne, se, sw
+            # and we know that the first two arcs must generate the points 
+            # clockwise and the last two anticlockwise.
+            if id == 0 or id == 1:
+                clockwise = True
+            else:
+                clockwise = False
+            arc_points = arc.get_points(n_points=n_points, clockwise=clockwise)
+            if points == []:
+                points = arc_points
+            else:
+                if arc_points[0] == points[-1]:
+                    points.extend(arc_points[1:])
+                else:
+                    points.extend(arc_points)
+        if points[0] == points[-1]:
+            points.pop()
+        #points = list(set(points))
         return points
+
+    def get_outline(self, outer:bool=False) -> Generator[el.Arc, None, None]:
+        """Genreator for getting the four arcs of the losange"""
+        if outer:
+            for arc in [self.onw, self.one, self.ose, self.osw]:
+                yield arc
+        else:
+            for arc in [self.inw, self.ine, self.ise, self.isw]:
+                yield arc
     
     def get_points_edges(
         self, 
-        n_points:int=10
+        n_points:int=10,
+        outer:bool=False,
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[int, int]]]:
-        points = self.get_points(n_points=n_points)
-        points = sort_points_clockwise(points)
-        edges = []
-        for i in range(len(points)):
-            edges.append((i, (i+1)%len(points)))
+        if self.has_lines:
+            points, edges = [], []
+            for losange in self.inner_losanges:
+                lo_points, lo_edges = losange.get_points_edges(n_points=n_points, outer=outer)
+                points += lo_points
+                edges += lo_edges
+        else:
+            points = self.get_points(n_points=n_points, outer=outer)
+            #points = sort_points_clockwise(points)
+            edges = []
+            for i in range(len(points)):
+                edges.append((i, (i+1)%len(points)))
+            # plot points and edges
+            # points = np.array(points)
+            # edges = np.array(edges)
+            # plt.scatter(points[:,0], points[:,1])
+            # for edge in edges:
+            #     plt.plot(points[edge,0], points[edge,1])
+            # plt.show()
+
         return points, edges
 
 def sort_points_clockwise(points:List[Tuple[float, float]]) -> List[Tuple[float, float]]:
