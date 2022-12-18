@@ -1,10 +1,12 @@
-import losange as lo
-import ellipse as el
-from delaunay import Triangulation
-from delaunday_refinement import Refinement
 from typing import List, Tuple, Optional
 import numpy as np
 import matplotlib.pyplot as plt
+
+from maroc.lampe import losange as lo
+from maroc.lampe import ellipse as el
+from maroc.lampe.delaunay import Triangulation
+from maroc.lampe.delaunday_refinement import Refinement
+
 
 class Schema:
     def __init__(self, n_mid_arcs: int):
@@ -40,7 +42,7 @@ class Schema:
         """ Generate points and edges of the schema"""
         assert offset >= 0 and offset <= 1
         sw, se, nw, ne = self._init_outline()
-        outline = lo.Losange(nw, ne, sw, se, relative=True, pad=0.05)
+        outline = lo.Losange(nw, ne, sw, se, relative=True, pad=0.07)
         md, mg = self._create_arcs(
             outline.isw, 
             outline.ise, 
@@ -48,20 +50,18 @@ class Schema:
             outline.ine, 
             offset
         )
-        # md, mg = self._create_arcs(
-        #     sw, 
-        #     se, 
-        #     nw, 
-        #     ne, 
-        #     offset
-        # )
         points, edges = [], []
         out_points, out_edges = outline.get_points_edges(n_points, outer=True)
         points += out_points
         edges += out_edges
         for i in range(len(md)-1):
             for j in range(len(mg)-1):
-                losange = lo.Losange(mg[i], md[j], md[j+1], mg[i+1], relative = True, pad=0.15)
+                losange = lo.Losange(
+                    mg[i], md[j], md[j+1], mg[i+1], 
+                    relative = True, 
+                    pad=0.02,
+                    has_lines=True
+                    )
                 los_points, los_edges = losange.get_points_edges(n_points)
                 # add len(points) to each value in los_edges
                 los_edges = [tuple([x+len(points) for x in edge]) for edge in los_edges]
@@ -114,9 +114,25 @@ class Schema:
 
     def plot(self):
         assert self.points is not None and self.segments is not None
-        plt.plot([p[0] for p in self.points], [p[1] for p in self.points], 'o')
+        plt.plot(
+            [p[0] for p in self.points], 
+            [p[1] for p in self.points], 
+            'o'
+        )
         for s in self.segments:
-            plt.plot([self.points[s[0]][0], self.points[s[1]][0]], [self.points[s[0]][1], self.points[s[1]][1]])
+            plt.plot(
+                [
+                    self.points[s[0]][0], 
+                    self.points[s[1]][0]
+                ], 
+                [
+                    self.points[s[0]][1], 
+                    self.points[s[1]][1]
+                ]
+            )
+        # set x and y limits to (0, 400)
+        plt.xlim(0, 400)
+        plt.ylim(0, 400)
         plt.show()
 
 
@@ -124,8 +140,8 @@ class Schema:
 
 if __name__ == "__main__":
     print("coucou")
-    schema = Schema(n_mid_arcs=4)
-    vertices, segments = schema.get_points_edges(10, 0.01)
+    schema = Schema(n_mid_arcs=3)
+    vertices, segments = schema.get_points_edges(10, 0.40)
     # plot the points
     assert len(vertices) == len(set(vertices))
     #points=list(set(points))
