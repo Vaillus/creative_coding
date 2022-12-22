@@ -59,8 +59,8 @@ class Schema:
                 losange = lo.Losange(
                     mg[i], md[j], md[j+1], mg[i+1], 
                     relative = True, 
-                    pad=0.02,
-                    has_lines=True
+                    pad=0.8,
+                    has_lines=False
                     )
                 los_points, los_edges = losange.get_points_edges(n_points)
                 # add len(points) to each value in los_edges
@@ -69,6 +69,7 @@ class Schema:
                 edges += los_edges
         self.points = points
         self.segments = edges
+        #points = self.curve_plane(self.points)
         return points, edges
 
     def _init_outline(self) -> Tuple[el.Arc, el.Arc, el.Arc, el.Arc]:
@@ -134,6 +135,35 @@ class Schema:
         plt.xlim(0, 400)
         plt.ylim(0, 400)
         plt.show()
+    @staticmethod
+    def curve_plane(points: List[Tuple[float, float]]):
+
+        points = np.array(points)
+        print(points)
+        # add a z dimension
+        #points = np.c_[points, np.zeros(len(points))]
+        center = points.mean(axis=0)
+        xmin = points[:,0].min()
+        xmax = points[:,0].max()
+        b = (xmax - xmin)/2
+        a = b/4
+        x = points[:,0]
+        z = a * np.sqrt(1 - (x - center[0])**2 / b**2)
+        # plot z against x
+        # set nan values in z to 0
+        z[np.isnan(z)] = 0
+        # put z in the new column of points
+        points[:,2] = z
+        # convert points to a list of tuples
+        points = [tuple(p) for p in points]
+        return points
+    
+    @staticmethod
+    def convert_bmesh_verts_to_points(bmverts):
+        points = []
+        for v in bmverts:
+            points += [(v.co[0], v.co[1], v.co[2])]
+        return points
 
 
 
@@ -142,6 +172,15 @@ if __name__ == "__main__":
     print("coucou")
     schema = Schema(n_mid_arcs=3)
     vertices, segments = schema.get_points_edges(10, 0.40)
+    # triangulate the points
+    from scipy.spatial import Delaunay
+    #tri = Delaunay(vertices)
+    #tri = Triangulation(vertices)
+
+    #tri()
+    #tri.plot()
+    #curve_plane(vertices)
+    
     # plot the points
     assert len(vertices) == len(set(vertices))
     #points=list(set(points))
@@ -159,8 +198,8 @@ if __name__ == "__main__":
     # plt.plot(vertices[:,0], vertices[:,1], 'o')
     # plt.show()
     schema.plot()
-    re = Refinement(vertices, segments)
-    re()
+    # re = Refinement(vertices, segments)
+    # re()
 
 # import matplotlib.pyplot as plt
 # vertices = np.array(tri.points)
