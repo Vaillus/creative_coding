@@ -194,6 +194,7 @@ class Losange:
             for losange in self.inner_losanges:
                 lo_points, lo_edges = losange.get_points_edges(n_points=n_points, outer=outer)
                 points += lo_points
+                lo_edges = [(e[0]+len(points), e[1]+len(points)) for e in lo_edges]
                 edges += lo_edges
         else:
             points = self.get_points(n_points=n_points, outer=outer)
