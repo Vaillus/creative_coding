@@ -1,5 +1,5 @@
 from typing import List, Tuple, Optional
-from delaunay import Triangulation
+from maroc.lampe.delaunay import Triangulation
 import numpy as np
 from scipy.spatial import Delaunay
 

@@ -1,7 +1,8 @@
-import ellipse as el
-
 import numpy as np
 from typing import Tuple, List, Generator
+
+from maroc.lampe import ellipse as el
+
 
 def mid_val(a,b,multi=0.5):
     valmin = min(a,b)
@@ -70,12 +71,16 @@ class Losange:
         """Generate three arcs equally spaced between inw and ise"""
         if self.has_lines:
             self.lines = []
-            self.lines.append(Losange.gen_middle(self.inw, self.ise, self.ine, \
-                self.isw, 1.0/4))
-            self.lines.append(Losange.gen_middle(self.inw, self.ise, self.ine, \
-                self.isw, 2.0/4))
-            self.lines.append(Losange.gen_middle(self.inw, self.ise, self.ine, \
-                self.isw, 3.0/4))
+            n_lines = 3
+            for i in range(n_lines-1):
+                self.lines.append(Losange.gen_middle(
+                    self.inw, self.ise, self.ine, self.isw, 
+                    float(i+1)/n_lines
+                ))
+            # self.lines.append(Losange.gen_middle(self.inw, self.ise, self.ine, \
+            #     self.isw, 2.0/4))
+            # self.lines.append(Losange.gen_middle(self.inw, self.ise, self.ine, \
+            #     self.isw, 3.0/4))
 
     @staticmethod
     def gen_middle(
@@ -114,7 +119,7 @@ class Losange:
         if self.lines == []:
             return
         clines: List[el.Arc] = [self.inw]
-        for line in self.lines:
+        for line in self.lines[::-1]:
             clines.append(line)
         clines += [self.ise]
         for i in range(len(clines)-1):
@@ -124,7 +129,7 @@ class Losange:
                 self.isw,
                 clines[i+1],
                 relative=True,
-                pad = 0.01,
+                pad = 0.1,
                 has_lines=False
             ))
         
@@ -193,23 +198,15 @@ class Losange:
             points, edges = [], []
             for losange in self.inner_losanges:
                 lo_points, lo_edges = losange.get_points_edges(n_points=n_points, outer=outer)
+                lo_edges = [(p[0]+len(points), p[1]+len(points)) for p in lo_edges]
                 points += lo_points
                 lo_edges = [(e[0]+len(points), e[1]+len(points)) for e in lo_edges]
                 edges += lo_edges
         else:
             points = self.get_points(n_points=n_points, outer=outer)
-            #points = sort_points_clockwise(points)
             edges = []
             for i in range(len(points)):
                 edges.append((i, (i+1)%len(points)))
-            # plot points and edges
-            # points = np.array(points)
-            # edges = np.array(edges)
-            # plt.scatter(points[:,0], points[:,1])
-            # for edge in edges:
-            #     plt.plot(points[edge,0], points[edge,1])
-            # plt.show()
-
         return points, edges
 
 def sort_points_clockwise(points:List[Tuple[float, float]]) -> List[Tuple[float, float]]:
