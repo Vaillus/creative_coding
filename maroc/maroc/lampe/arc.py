@@ -228,7 +228,10 @@ class Arc():
         # angles is not good because it might miss some points.
         # The choice will be between vanilla and bresenham.
         # I will try to parallelize one of them later.
-        self.render_vectorized(img, color)
+        # self.render_vectorized(img, color)
+        # self.render_vanilla(img, color)
+        self.render_bresenham(img, color)
+        
 
     def render_vanilla(
         self, 
@@ -269,82 +272,47 @@ class Arc():
                     self._draw_bold_circle(img, xm, y, color, bold=bold)
 
     def render_vectorized(self, img, color=(0,0,0)):
+        color = np.array(color, dtype=np.uint8)
         # Define the range for x and y
-        x_range = jnp.arange(-arc.a, arc.a + 1)
-        xmax = max(arc.tp[0],arc.bp[0])
-        xmin = min(arc.tp[0],arc.bp[0])
-        ymax = max(arc.tp[1],arc.bp[1])
-        ymin = min(arc.tp[1],arc.bp[1])
-        x_in_bounds = (x_range + arc.center[0] <= xmax) & (x_range + arc.center[0] >= xmin)
+        x_range = np.arange(-self.a, self.a + 1)
+        xmax = max(self.tp[0],self.bp[0])
+        xmin = min(self.tp[0],self.bp[0])
+        ymax = max(self.tp[1],self.bp[1])
+        ymin = min(self.tp[1],self.bp[1])
+        x_in_bounds = (x_range + self.center[0] <= xmax) & (x_range + self.center[0] >= xmin)
         x_range = x_range[x_in_bounds]
-        y_range = jnp.arange(-arc.b, arc.b + 1)
-        y_in_bounds = (y_range + arc.center[1] <= ymax) & (y_range + arc.center[1] >= ymin)
+        y_range = np.arange(-self.b, self.b + 1)
+        y_in_bounds = (y_range + self.center[1] <= ymax) & (y_range + self.center[1] >= ymin)
         y_range = y_range[y_in_bounds]
 
-        yp = arc.b * jnp.sqrt(1 - (x_range/arc.a)**2)
+        yp = self.b * np.sqrt(1 - (x_range/self.a)**2)
         ym = -yp
 
-        xp = arc.a * jnp.sqrt(1 - (y_range/arc.b)**2)
+        xp = self.a * np.sqrt(1 - (y_range/self.b)**2)
         xm = -xp
 
         # get the x_range, yp pairs for yp in y_range
-        yp_in_bounds = (yp + arc.center[1] <= ymax) & (yp + arc.center[1] >= ymin)
-        yp_pairs = jnp.array([x_range, yp]).T[yp_in_bounds]
+        yp_in_bounds = (yp + self.center[1] <= ymax) & (yp + self.center[1] >= ymin)
+        yp_pairs = np.array([x_range, yp]).T[yp_in_bounds]
         # get the x_range, ym pairs for ym in y_range
-        ym_in_bounds = (ym + arc.center[1] <= ymax) & (ym + arc.center[1] >= ymin)
-        ym_pairs = jnp.array([x_range, ym]).T[ym_in_bounds]
+        ym_in_bounds = (ym + self.center[1] <= ymax) & (ym + self.center[1] >= ymin)
+        ym_pairs = np.array([x_range, ym]).T[ym_in_bounds]
 
         # get the x_range, yp pairs for yp in y_range
-        xp_in_bounds = (xp + arc.center[0] <= xmax) & (xp + arc.center[0] >= xmin)
-        xp_pairs = jnp.array([x_range, xp]).T[xp_in_bounds]
+        xp_in_bounds = (xp + self.center[0] <= xmax) & (xp + self.center[0] >= xmin)
+        xp_pairs = np.array([xp, y_range]).T[xp_in_bounds]
         # get the x_range, ym pairs for ym in y_range
-        xm_in_bounds = (xm + arc.center[0] <= xmax) & (xm + arc.center[0] >= xmin)
-        xm_pairs = jnp.array([x_range, xm]).T[xm_in_bounds]
+        xm_in_bounds = (xm + self.center[0] <= xmax) & (xm + self.center[0] >= xmin)
+        xm_pairs = np.array([xm, y_range]).T[xm_in_bounds]
 
-
-        # Function to process a single x
-        def process_x(x, xmax, xmin, ymax, ymin):
-            # Compute y coordinates for this x
-            yp = self.b * jnp.sqrt(1 - (x/self.a)**2)
-            ym = -yp
-            
-            # Check if x is within the limits of the arc
-            x_in_bounds = (x + self.center[0] <= xmax) & (x + self.center[0] >= xmin)
-            
-            # Check if y points are within the limits of the arc
-            yp_in_bounds = (yp + self.center[1] <= ymax) & (yp + self.center[1] >= ymin)
-            ym_in_bounds = (ym + self.center[1] <= ymax) & (ym + self.center[1] >= ymin)
-            
-            # Combine conditions
-            should_color_p = x_in_bounds & yp_in_bounds
-            should_color_m = x_in_bounds & ym_in_bounds
-            
-            return x, yp, ym, should_color_p, should_color_m
-
-        def process_y(y, xmax, xmin, ymax, ymin):
-            xp = self.a * jnp.sqrt(1 - (y/self.b)**2)
-            xm = -xp
-
-            y_in_bounds = (y + self.center[1] <= ymax) & (y + self.center[1] >= ymin)
-
-            xp_in_bounds = (xp + self.center[0] <= xmax) & (xp + self.center[0] >= xmin)
-            xm_in_bounds = (xm + self.center[0] <= xmax) & (xm + self.center[0] >= xmin)
-
-            should_color_p = xp_in_bounds & y_in_bounds
-            should_color_m = xm_in_bounds & y_in_bounds
-
-            return y, xp, xm, should_color_p, should_color_m
-
-        x, yp, ym, should_color_p, should_color_m = vmap(process_x)(x_range, xmax, xmin, ymax, ymin)
-        # from those variables, create the set of px, py that will be colored
-
-
-
-        y, xp, xm, should_color_p2, should_color_m2 = vmap(process_y)(y_range, xmax, xmin, ymax, ymin)
-
-        
-        # Update the image
-        return img.at[py, px].set(new_colors)
+        # merge the content of yp_pairs, ym_pairs, xp_pairs, xm_pairs such that there are no duplicate points
+        merged_pairs = np.concatenate([yp_pairs, ym_pairs, xp_pairs, xm_pairs])
+        # add the center point to the merged_pairs
+        merged_pairs = merged_pairs + np.array(self.center)
+        merged_pairs = merged_pairs.astype(np.int32)
+        # remove duplicates rows
+        merged_pairs = np.unique(merged_pairs, axis=0)
+        img[merged_pairs[:, 1], merged_pairs[:, 0]] = color
 
     def _draw_bold_circle(
         self, 
@@ -445,7 +413,7 @@ class Arc():
             self._plot_ellipse_points_bresenham(img, x, y, color, bold, start_angle, end_angle)
 
     def _plot_ellipse_points_bresenham(
-        self, img, x, y, color, bold, start_angle, end_angle, max_a, max_b
+        self, img, x, y, color, bold, start_angle, end_angle
     ):
         points = [
             (self.center[0] + x, self.center[1] + y),

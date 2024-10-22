@@ -202,5 +202,5 @@ class Losange:
         self.ise.render(img, color, bold=bold, max_x=max_x, min_x=min_x, max_y=max_y, min_y=min_y)  
         if self.has_lines:
             for line in self.lines:
-                line.render(img, color, bold=bold, max_a=max_a, max_b=max_b)
+                line.render(img, color, bold=bold)
     

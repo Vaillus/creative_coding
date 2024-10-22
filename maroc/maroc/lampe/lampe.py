@@ -8,6 +8,8 @@ from maroc.lampe.arc import Arc
 from maroc.lampe.losange import Losange, interpolate
 from PIL import Image
 
+import jax.numpy as jnp
+
 
 def base():
     # Create a list to store the images
