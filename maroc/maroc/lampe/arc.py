@@ -229,47 +229,7 @@ class Arc():
         # The choice will be between vanilla and bresenham.
         # I will try to parallelize one of them later.
         # self.render_vectorized(img, color)
-        # self.render_vanilla(img, color)
-        self.render_bresenham(img, color)
-        
-
-    def render_vanilla(
-        self, 
-        img: np.ndarray[int, np.dtype[np.int64]], 
-        color: Tuple[int]=(0,0,0), 
-        bold: bool=False
-    ) -> None:
-        # get the limits of the ellipse
-        xmax = max(self.tp[0],self.bp[0])
-        xmin = min(self.tp[0],self.bp[0])
-        ymax = max(self.tp[1],self.bp[1])
-        ymin = min(self.tp[1],self.bp[1])
-        # render the ellipse
-        for x in range(int(-self.a), int(self.a)): # sweep on the x axis
-            # check if the point is within the limits of the arc
-            if (x+self.center[0] <= xmax) and (x+self.center[0]>=xmin):
-                # compute the y coordinates of the points on the ellipse
-                yp = self.b * np.sqrt(1 - (x/self.a)**2)
-                ym = - yp
-                # check if the points are within the limits of the arc
-                if (yp+self.center[1] <= ymax) and (yp+self.center[1]>=ymin):
-                    img[int(x+self.center[0]), int(yp+self.center[1])] = color
-                    # draw all adjacent pixels
-                    self._draw_bold_circle(img, x, yp, color, bold=bold)
-                if (ym+self.center[1] <= ymax) and (ym+self.center[1]>=ymin):
-                    img[int(x+self.center[0]),int(ym+self.center[1])] = color
-                    self._draw_bold_circle(img, x, ym, color, bold=bold)
-        # do the same as above but sweep on the y axis
-        for y in range(int(-self.b), int(self.b)):
-            if (y+self.center[1] <= ymax) and (y+self.center[1]>=ymin):
-                xp = self.a * np.sqrt(1 - (y/self.b)**2)
-                xm = - xp
-                if (xp+self.center[0] <= xmax) and (xp+self.center[0]>=xmin):
-                    img[int(xp+self.center[0]), int(y+self.center[1])] = color
-                    self._draw_bold_circle(img, xp, y, color, bold=bold)
-                if (xm+self.center[0] <= xmax) and (xm+self.center[0]>=xmin):
-                    img[int(xm+self.center[0]), int(y+self.center[1])] = color
-                    self._draw_bold_circle(img, xm, y, color, bold=bold)
+        self.render_vectorized(img, color)
 
     def render_vectorized(self, img, color=(0,0,0)):
         color = np.array(color, dtype=np.uint8)
@@ -312,7 +272,7 @@ class Arc():
         merged_pairs = merged_pairs.astype(np.int32)
         # remove duplicates rows
         merged_pairs = np.unique(merged_pairs, axis=0)
-        img[merged_pairs[:, 1], merged_pairs[:, 0]] = color
+        img[merged_pairs[:, 0], merged_pairs[:, 1]] = color
 
     def _draw_bold_circle(
         self, 
@@ -360,6 +320,93 @@ class Arc():
         #     img[int(py), int(px)] = color
         #     if bold:
         #         cv2.circle(img, (int(px), int(py)), 1, color, -1)
+
+
+
+# === other tested rendering methods
+
+
+
+    def render_vanilla(
+        self, 
+        img: np.ndarray[int, np.dtype[np.int64]], 
+        color: Tuple[int]=(0,0,0), 
+        bold: bool=False
+    ) -> None:
+        # get the limits of the ellipse
+        xmax = max(self.tp[0],self.bp[0])
+        xmin = min(self.tp[0],self.bp[0])
+        ymax = max(self.tp[1],self.bp[1])
+        ymin = min(self.tp[1],self.bp[1])
+        # render the ellipse
+        for x in range(int(-self.a), int(self.a)): # sweep on the x axis
+            # check if the point is within the limits of the arc
+            if (x+self.center[0] <= xmax) and (x+self.center[0]>=xmin):
+                # compute the y coordinates of the points on the ellipse
+                yp = self.b * np.sqrt(1 - (x/self.a)**2)
+                ym = - yp
+                # check if the points are within the limits of the arc
+                if (yp+self.center[1] <= ymax) and (yp+self.center[1]>=ymin):
+                    img[int(x+self.center[0]), int(yp+self.center[1])] = color
+                    # draw all adjacent pixels
+                    self._draw_bold_circle(img, x, yp, color, bold=bold)
+                if (ym+self.center[1] <= ymax) and (ym+self.center[1]>=ymin):
+                    img[int(x+self.center[0]),int(ym+self.center[1])] = color
+                    self._draw_bold_circle(img, x, ym, color, bold=bold)
+        # do the same as above but sweep on the y axis
+        for y in range(int(-self.b), int(self.b)):
+            if (y+self.center[1] <= ymax) and (y+self.center[1]>=ymin):
+                xp = self.a * np.sqrt(1 - (y/self.b)**2)
+                xm = - xp
+                if (xp+self.center[0] <= xmax) and (xp+self.center[0]>=xmin):
+                    img[int(xp+self.center[0]), int(y+self.center[1])] = color
+                    self._draw_bold_circle(img, xp, y, color, bold=bold)
+                if (xm+self.center[0] <= xmax) and (xm+self.center[0]>=xmin):
+                    img[int(xm+self.center[0]), int(y+self.center[1])] = color
+                    self._draw_bold_circle(img, xm, y, color, bold=bold)
+
+    def render_jax(self, img, color=(0,0,0)):
+        color = jnp.array(color, dtype=np.uint8)
+        # Define the range for x and y
+        x_range = jnp.arange(-self.a, self.a + 1)
+        xmax = max(self.tp[0],self.bp[0])
+        xmin = min(self.tp[0],self.bp[0])
+        ymax = max(self.tp[1],self.bp[1])
+        ymin = min(self.tp[1],self.bp[1])
+        x_in_bounds = (x_range + self.center[0] <= xmax) & (x_range + self.center[0] >= xmin)
+        x_range = x_range[x_in_bounds]
+        y_range = jnp.arange(-self.b, self.b + 1)
+        y_in_bounds = (y_range + self.center[1] <= ymax) & (y_range + self.center[1] >= ymin)
+        y_range = y_range[y_in_bounds]
+
+        yp = self.b * jnp.sqrt(1 - (x_range/self.a)**2)
+        ym = -yp
+
+        xp = self.a * jnp.sqrt(1 - (y_range/self.b)**2)
+        xm = -xp
+
+        # get the x_range, yp pairs for yp in y_range
+        yp_in_bounds = (yp + self.center[1] <= ymax) & (yp + self.center[1] >= ymin)
+        yp_pairs = jnp.array([x_range, yp]).T[yp_in_bounds]
+        # get the x_range, ym pairs for ym in y_range
+        ym_in_bounds = (ym + self.center[1] <= ymax) & (ym + self.center[1] >= ymin)
+        ym_pairs = jnp.array([x_range, ym]).T[ym_in_bounds]
+
+        # get the x_range, yp pairs for yp in y_range
+        xp_in_bounds = (xp + self.center[0] <= xmax) & (xp + self.center[0] >= xmin)
+        xp_pairs = jnp.array([xp, y_range]).T[xp_in_bounds]
+        # get the x_range, ym pairs for ym in y_range
+        xm_in_bounds = (xm + self.center[0] <= xmax) & (xm + self.center[0] >= xmin)
+        xm_pairs = jnp.array([xm, y_range]).T[xm_in_bounds]
+
+        # merge the content of yp_pairs, ym_pairs, xp_pairs, xm_pairs such that there are no duplicate points
+        merged_pairs = jnp.concatenate([yp_pairs, ym_pairs, xp_pairs, xm_pairs])
+        # add the center point to the merged_pairs
+        merged_pairs = merged_pairs + jnp.array(self.center)
+        merged_pairs = merged_pairs.astype(jnp.int32)
+        # remove duplicates rows
+        merged_pairs = jnp.unique(merged_pairs, axis=0)
+        img.at[merged_pairs[:, 1], merged_pairs[:, 0]].set(color)
 
     def render_bresenham(
         self, 
@@ -428,41 +475,6 @@ class Arc():
                     img[int(py), int(px)] = color
                     if bold:
                         cv2.circle(img, (int(px), int(py)), 1, color, -1)
-
-    def render_jax(self, img, color=(0,0,0), bold=False, max_x=0, min_x=0, max_y=0, min_y=0):
-        # Convert inputs to JAX arrays if they aren't already
-        img = jnp.array(img)
-        color = jnp.array(color)
-        center = jnp.array(self.center)
-        tp = jnp.array(self.tp)
-        bp = jnp.array(self.bp)
-        a = jnp.array(self.a)
-        b = jnp.array(self.b)
-        x = jnp.arange(min_x, max_x+1) 
-        y = jnp.arange(min_y, max_y+1)
-        return _render_jax_core(a, b, center, tp, bp, img, color, x, y)
-
-    
-
-    @staticmethod
-    @jit
-    def _compute_ellipse_points(x, y, a, b, center):
-        yp = b * jnp.sqrt(1 - (x/a)**2)
-        ym = -yp
-        xp = jnp.full_like(y, a) * jnp.sqrt(1 - (y/b)**2)
-        xm = -xp
-        return jnp.stack([
-            jnp.column_stack([
-                jnp.full_like(y, x + center[0]), 
-                jnp.full_like(y, yp) + center[1]
-            ]),
-            jnp.column_stack([
-                jnp.full_like(y, x + center[0]), 
-                jnp.full_like(y, ym) + center[1]
-            ]),
-            jnp.column_stack([xm + center[0], y + center[1]]),
-            jnp.column_stack([xp + center[0], y + center[1]])
-        ])
 
 
 

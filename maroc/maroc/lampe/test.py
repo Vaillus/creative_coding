@@ -20,8 +20,8 @@ def main():
     rcenter = (390, 300)
     arc = Arc(lcenter, top_point=left, bottom_point=base)
     img = jnp.ones((400, 400, 3), dtype=np.uint8) * 255
-    img = np.ones((400, 400, 3), dtype=np.uint8) * 255
-    arc.render_vanilla(img)
+    # img = np.ones((400, 400, 3), dtype=np.uint8) * 255
+    arc.render(img)
     # arc.render_vectorizeimgd(img)
 
 def simu_iter():
@@ -36,6 +36,6 @@ def simu_iter():
 
 if __name__ == "__main__":
     simu_iter()
-    # cProfile.run('main()', sort='cumtime')
+    # main()
     
     
