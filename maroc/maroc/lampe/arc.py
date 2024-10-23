@@ -219,60 +219,65 @@ class Arc():
         self, 
         img: jnp.ndarray[int, np.dtype[np.int64]], 
         color: Tuple[int]=(0,0,0), 
-        bold: bool=False,
-        max_x:int=0,
-        min_x:int=0,
-        max_y:int=0,
-        min_y:int=0
+        bold: bool=False
     ) -> None:
         # angles is not good because it might miss some points.
         # The choice will be between vanilla and bresenham.
         # I will try to parallelize one of them later.
-        # self.render_vectorized(img, color)
-        self.render_vectorized(img, color)
+        # self.render_vanilla(img, color)
+        self.render_vectorized(img, color, bold)
 
-    def render_vectorized(self, img, color=(0,0,0)):
-        color = np.array(color, dtype=np.uint8)
-        # Define the range for x and y
-        x_range = np.arange(-self.a, self.a + 1)
+    def render_vectorized(self, img, color=(0,0,0), bold=False):
+        pts = self.get_pixels_vectorized()
+        # remove duplicates rows
+        pts = np.unique(pts, axis=0)
+        if not bold:
+            img[pts[:, 0], pts[:, 1]] = color
+        else:
+            for x, y in pts:
+                self._draw_bold_circle(img, y, x, color, bold=bold)
+
+    def get_pixels_vectorized(self) -> np.ndarray[int, np.dtype[np.int32]]:
+        # Define the bounds for x and y
         xmax = max(self.tp[0],self.bp[0])
         xmin = min(self.tp[0],self.bp[0])
         ymax = max(self.tp[1],self.bp[1])
         ymin = min(self.tp[1],self.bp[1])
+
+        x_range = np.arange(-self.a, self.a + 1)
         x_in_bounds = (x_range + self.center[0] <= xmax) & (x_range + self.center[0] >= xmin)
         x_range = x_range[x_in_bounds]
+        
+        yp = self.b * np.sqrt(1 - (x_range/self.a)**2)
+        # get the x_range, yp pairs for yp in y_range
+        yp_in_bounds = (yp + self.center[1] <= ymax) & (yp + self.center[1] >= ymin)
+        yp_pts = np.array([x_range, yp]).T[yp_in_bounds]
+        ym = -yp
+        # get the x_range, ym pairs for ym in y_range
+        ym_in_bounds = (ym + self.center[1] <= ymax) & (ym + self.center[1] >= ymin)
+        ym_pts = np.array([x_range, ym]).T[ym_in_bounds]
+        
+        
         y_range = np.arange(-self.b, self.b + 1)
         y_in_bounds = (y_range + self.center[1] <= ymax) & (y_range + self.center[1] >= ymin)
         y_range = y_range[y_in_bounds]
 
-        yp = self.b * np.sqrt(1 - (x_range/self.a)**2)
-        ym = -yp
-
         xp = self.a * np.sqrt(1 - (y_range/self.b)**2)
-        xm = -xp
-
-        # get the x_range, yp pairs for yp in y_range
-        yp_in_bounds = (yp + self.center[1] <= ymax) & (yp + self.center[1] >= ymin)
-        yp_pairs = np.array([x_range, yp]).T[yp_in_bounds]
-        # get the x_range, ym pairs for ym in y_range
-        ym_in_bounds = (ym + self.center[1] <= ymax) & (ym + self.center[1] >= ymin)
-        ym_pairs = np.array([x_range, ym]).T[ym_in_bounds]
-
         # get the x_range, yp pairs for yp in y_range
         xp_in_bounds = (xp + self.center[0] <= xmax) & (xp + self.center[0] >= xmin)
-        xp_pairs = np.array([xp, y_range]).T[xp_in_bounds]
+        xp_pts = np.array([xp, y_range]).T[xp_in_bounds]
+        xm = -xp
         # get the x_range, ym pairs for ym in y_range
         xm_in_bounds = (xm + self.center[0] <= xmax) & (xm + self.center[0] >= xmin)
-        xm_pairs = np.array([xm, y_range]).T[xm_in_bounds]
+        xm_pts = np.array([xm, y_range]).T[xm_in_bounds]
 
         # merge the content of yp_pairs, ym_pairs, xp_pairs, xm_pairs such that there are no duplicate points
-        merged_pairs = np.concatenate([yp_pairs, ym_pairs, xp_pairs, xm_pairs])
+        pts = np.concatenate([yp_pts, ym_pts, xp_pts, xm_pts])
         # add the center point to the merged_pairs
-        merged_pairs = merged_pairs + np.array(self.center)
-        merged_pairs = merged_pairs.astype(np.int32)
-        # remove duplicates rows
-        merged_pairs = np.unique(merged_pairs, axis=0)
-        img[merged_pairs[:, 0], merged_pairs[:, 1]] = color
+        pts += np.array(self.center)
+        pts = pts.astype(np.int32)
+
+        return pts
 
     def _draw_bold_circle(
         self, 
@@ -286,10 +291,10 @@ class Arc():
         if bold:
             cv2.circle(
                 img, 
-                (int(x+self.center[0]), int(y+self.center[1])), 
+                (x, y), 
                 2, 
                 color, 
-                -1
+                0
             )
 
     def render_angles(
@@ -321,7 +326,62 @@ class Arc():
         #     if bold:
         #         cv2.circle(img, (int(px), int(py)), 1, color, -1)
 
+    def get_params(self):
+        return [
+            self.center[0], self.center[1], 
+            self.a, 
+            self.b, 
+            self.tp[0], self.tp[1], 
+            self.bp[0], self.bp[1]
+        ]
 
+    @staticmethod
+    def get_pixels_vectorized_2(center, a, b, tp, bp):
+        # Define the bounds for x and y
+        xmax = jnp.max(jnp.array([tp[0],bp[0]]))
+        xmin = jnp.min(jnp.array([tp[0],bp[0]]))
+        ymax = jnp.max(jnp.array([tp[1],bp[1]])) 
+        ymin = jnp.min(jnp.array([tp[1],bp[1]]))
+
+        x_range = jnp.arange(-400, 400)
+        x_in_bounds = (x_range + center[0] <= xmax) & (x_range + center[0] >= xmin)
+        # x_range = x_range[x_in_bounds]
+        x_range = jnp.where(x_in_bounds, x_range, jnp.nan)
+        # x_range = x_range[jnp.isfinite(x_range)]
+        yp = b * jnp.sqrt(1 - (x_range/a)**2)
+        # get the x_range, yp pairs for yp in y_range
+        yp_in_bounds = (yp + center[1] <= ymax) & (yp + center[1] >= ymin)
+        yp_pts = jnp.array([x_range, yp])
+        yp_pts = jnp.where(yp_in_bounds, yp_pts, jnp.nan).T
+        ym = -yp
+        # get the x_range, ym pairs for ym in y_range
+        ym_in_bounds = (ym + center[1] <= ymax) & (ym + center[1] >= ymin)
+        ym_pts = jnp.array([x_range, ym])
+        ym_pts = jnp.where(ym_in_bounds, ym_pts, jnp.nan).T
+        
+        y_range = jnp.arange(-400, 400)
+        y_in_bounds = (y_range + center[1] <= ymax) & (y_range + center[1] >= ymin)
+        y_range = jnp.where(y_in_bounds, y_range, jnp.nan)
+
+        xp = a * jnp.sqrt(1 - (y_range/b)**2)
+        # get the x_range, yp pairs for yp in y_range
+        xp_in_bounds = (xp + center[0] <= xmax) & (xp + center[0] >= xmin)
+        xp_pts = jnp.array([xp, y_range])
+        xp_pts = jnp.where(xp_in_bounds, xp_pts, jnp.nan).T
+
+        xm = -xp
+        # get the x_range, ym pairs for ym in y_range
+        xm_in_bounds = (xm + center[0] <= xmax) & (xm + center[0] >= xmin)
+        xm_pts = jnp.array([xm, y_range])
+        xm_pts = jnp.where(xm_in_bounds, xm_pts, jnp.nan).T
+
+        # merge the content of yp_pairs, ym_pairs, xp_pairs, xm_pairs such that there are no duplicate points
+        pts = jnp.concatenate([yp_pts, ym_pts, xp_pts, xm_pts])
+        # add the center point to the merged_pairs
+        pts += jnp.array(center)
+        # pts = pts.astype(jnp.int32)
+
+        return pts
 
 # === other tested rendering methods
 

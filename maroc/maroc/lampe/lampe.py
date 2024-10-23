@@ -1,14 +1,14 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
-from shapely.geometry.polygon import LinearRing
 from typing import Tuple, List
+import jax.numpy as jnp
+from jax import vmap
 
 from maroc.lampe.arc import Arc
 from maroc.lampe.losange import Losange, interpolate
 from PIL import Image
 
-import jax.numpy as jnp
+
 
 
 def base():
@@ -30,7 +30,8 @@ def base():
         md, mg = init_mid_arcs(sw, se, nw, ne, offset)
         max_x, min_x, max_y, min_y = compute_max_arc_args(md + mg)
         losanges = init_losanges(md, mg)
-        imgs = render(imgs, sw, se, nw, ne, losanges, max_x, min_x, max_y, min_y)
+        imgs = render(imgs, sw, se, nw, ne, losanges)
+        # imgs = render_parallel(imgs, sw, se, nw, ne, losanges)
 
         if cv2.waitKey(1) == ord('q'):
             cv2.destroyAllWindows()
@@ -118,17 +119,53 @@ def init_losanges(md, mg):
             losanges.append(losange)
     return losanges
 
-def render(imgs, sw: Arc, se: Arc, nw: Arc, ne: Arc, losanges: List[Losange], max_x:int, min_x:int, max_y:int, min_y:int):
-        img = np.ones((400, 400, 3), dtype = "uint8") * 255
-        sw.render(img, max_x=max_x, min_x=min_x, max_y=max_y, min_y=min_y)
-        se.render(img, max_x=max_x, min_x=min_x, max_y=max_y, min_y=min_y)
-        nw.render(img, max_x=max_x, min_x=min_x, max_y=max_y, min_y=min_y)
-        ne.render(img, max_x=max_x, min_x=min_x, max_y=max_y, min_y=min_y)
-        for losange in losanges:
-            losange.render(img, max_x=max_x, min_x=min_x, max_y=max_y, min_y=min_y)
-        cv2.imshow("output", img)
-        imgs += [Image.fromarray(img)]
-        return imgs
+def render(imgs, sw: Arc, se: Arc, nw: Arc, ne: Arc, losanges: List[Losange]):
+    img = np.ones((400, 400, 3), dtype = "uint8") * 255
+    sw.render(img, bold=False)
+    se.render(img, bold=False)
+    nw.render(img, bold=False)
+    ne.render(img, bold=False)
+    for losange in losanges:
+        losange.render(img)
+    cv2.imshow("output", img)
+    imgs += [Image.fromarray(img)]
+    return imgs
+
+def render_parallel(
+    imgs, sw: Arc, se: Arc, nw: Arc, ne: Arc, losanges: List[Losange]
+):
+    """
+    I tried to parallelize the rendering of the arcs.
+    It is not faster.
+    I keep this for posterity.
+    """
+    img = np.ones((400, 400, 3), dtype = "uint8") * 255
+    arcs = [sw, se, nw, ne]
+    for losange in losanges:
+        arcs += losange.get_arcs()
+    params = []
+    for arc in arcs:
+        params += [arc.get_params()]
+    pts = vmap(get_arc_pts)(np.array(params))
+    flat_pts = pts.reshape(-1, 2)
+    flat_pts = flat_pts[~jnp.isnan(flat_pts).any(axis=-1)]
+    # convert to int
+    flat_pts = flat_pts.astype(jnp.int32)
+    flat_pts = np.unique(flat_pts, axis=0)
+    img[flat_pts[:, 0], flat_pts[:, 1]] = (0,0,0)
+    cv2.imshow("output", img)
+    imgs += [Image.fromarray(img)]
+    return imgs
+
+def get_arc_pts(params):
+    center = (params[0], params[1])
+    a = params[2]
+    b = params[3]
+    tp = (params[4], params[5])
+    bp = (params[6], params[7])
+    pts = Arc.get_pixels_vectorized_2(center, a, b, tp, bp)
+    return pts
+    
 
 if __name__ == "__main__":
     # test()

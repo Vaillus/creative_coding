@@ -4,7 +4,8 @@ import numpy as np
 from maroc.lampe.arc import Arc
 import jax.numpy as jnp
 
-from maroc.lampe.lampe import init_borders, init_mid_arcs, compute_max_arc_args, init_losanges, render
+from maroc.lampe.lampe import init_borders, init_mid_arcs, \
+    compute_max_arc_args, init_losanges, render, render_parallel
 
 
 def main():
@@ -31,7 +32,7 @@ def simu_iter():
     md, mg = init_mid_arcs(sw, se, nw, ne, offset)
     max_x, min_x, max_y, min_y = compute_max_arc_args(md + mg)
     losanges = init_losanges(md, mg)
-    imgs = render(imgs, sw, se, nw, ne, losanges, max_x, min_x, max_y, min_y)
+    imgs = render_parallel(imgs, sw, se, nw, ne, losanges)
 
 
 if __name__ == "__main__":

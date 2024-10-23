@@ -189,18 +189,20 @@ class Losange:
     def render(
         self, 
         img: np.ndarray[int, np.dtype[np.int64]], 
-        color: Tuple[int]=(0,0,0),
-        max_x:int=0,
-        min_x:int=0,
-        max_y:int=0,
-        min_y:int=0
+        color: Tuple[int]=(0,0,0)
     ) -> None:
         bold = self.thickness == 2
-        self.inw.render(img, color, bold=bold, max_x=max_x, min_x=min_x, max_y=max_y, min_y=min_y)
-        self.ine.render(img, color, bold=bold, max_x=max_x, min_x=min_x, max_y=max_y, min_y=min_y)
-        self.isw.render(img, color, bold=bold, max_x=max_x, min_x=min_x, max_y=max_y, min_y=min_y)
-        self.ise.render(img, color, bold=bold, max_x=max_x, min_x=min_x, max_y=max_y, min_y=min_y)  
+        self.inw.render(img, color, bold=bold)
+        self.ine.render(img, color, bold=bold)
+        self.isw.render(img, color, bold=bold)
+        self.ise.render(img, color, bold=bold)  
         if self.has_lines:
             for line in self.lines:
                 line.render(img, color, bold=bold)
     
+    def get_arcs(self):
+        arcs = [self.inw, self.ine, self.isw, self.ise]
+        if self.has_lines:
+            for line in self.lines:
+                arcs += [line]
+        return arcs
