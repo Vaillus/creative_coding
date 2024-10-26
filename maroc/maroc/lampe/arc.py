@@ -257,7 +257,6 @@ class Arc():
         ym_in_bounds = (ym + self.center[1] <= ymax) & (ym + self.center[1] >= ymin)
         ym_pts = np.array([x_range, ym]).T[ym_in_bounds]
         
-        
         y_range = np.arange(-self.b, self.b + 1)
         y_in_bounds = (y_range + self.center[1] <= ymax) & (y_range + self.center[1] >= ymin)
         y_range = y_range[y_in_bounds]

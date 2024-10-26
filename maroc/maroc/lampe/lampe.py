@@ -17,6 +17,7 @@ def base():
     # Initialize the four external arcs constituting the outline of the
     # figure.
     sw, se, nw, ne = init_borders()
+    isw, ise, inw, ine = init_inner_arcs(sw, se, nw, ne, 0.03)
     # Set the total number of frames
     T = 50
     # Initialize the current frame counter
@@ -27,8 +28,8 @@ def base():
             t = 0
         offset = t/T
         t += 1
-        md, mg = init_mid_arcs(sw, se, nw, ne, offset)
-        max_x, min_x, max_y, min_y = compute_max_arc_args(md + mg)
+        md, mg = init_mid_arcs(isw, ise, inw, ine, offset)
+        # max_x, min_x, max_y, min_y = compute_max_arc_args(md + mg)
         losanges = init_losanges(md, mg)
         imgs = render(imgs, sw, se, nw, ne, losanges)
         # imgs = render_parallel(imgs, sw, se, nw, ne, losanges)
@@ -62,6 +63,14 @@ def init_borders() -> Tuple[Arc, Arc, Arc, Arc]:
     nw = Arc(rcenter, top_point=top, bottom_point=left)
     ne = Arc(lcenter, top_point=top, bottom_point=right)
     return sw, se, nw, ne
+
+def init_inner_arcs(sw, se, nw, ne, offset) -> Tuple[Arc, Arc, Arc, Arc]:
+    """initialize the inner arcs."""
+    isw = Losange.gen_inner_arc_interpolated(sw, ne, se, nw, offset)
+    ise = Losange.gen_inner_arc_interpolated(se, nw, ne, sw, offset)
+    inw = Losange.gen_inner_arc_interpolated(nw, se, sw, ne, 1-offset)
+    ine = Losange.gen_inner_arc_interpolated(ne, sw, se, nw, 1-offset)
+    return isw, ise, inw, ine
 
 def init_mid_arcs(sw, se, nw, ne, offset):
     """initialize the middle arcs. 
