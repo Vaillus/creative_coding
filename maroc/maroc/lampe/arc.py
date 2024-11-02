@@ -1,15 +1,18 @@
 from __future__ import annotations
 from math import atan2
 import numpy as np
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Union
 from shapely.geometry.polygon import LinearRing
 import matplotlib.pyplot as plt
 import cv2
 import jax.numpy as jnp
 from jax import jit, vmap
+import math
 
 @jit
 def _render_jax_core(a, b, center, tp, bp, img, color, x, y):
+    """Un reliquat de quand j'essayais jax pour rendre un arc.
+    """
     # Step 1: Determine the bounding box of the arc
     xmax, xmin = jnp.maximum(tp[0], bp[0]), jnp.minimum(tp[0], bp[0])
     ymax, ymin = jnp.maximum(tp[1], bp[1]), jnp.minimum(tp[1], bp[1])
@@ -36,40 +39,27 @@ class Arc():
     def __init__(
         self, 
         center: Tuple[float, float], 
-        a: Optional[float]=None, 
-        b: Optional[float]=None, 
-        top_point: Optional[Tuple[float, float]]=None, 
-        bottom_point: Optional[Tuple[float, float]]=None
+        a: float, 
+        b: float, 
+        # top_point: Optional[Tuple[float, float]]=None, 
+        # bottom_point: Optional[Tuple[float, float]]=None,
+        ang_start:Optional[float]=None,
+        ang_end:Optional[float]=None,
+        
     ):
         """ An arc is inscribed in an ellipse defined by its center and 
         its two axes a (horizontal) and b (vertical).
-        The arc is delimited by the starting point and the ending point.
-        
-        An arc can be initialized in two ways:
-        1. with the center and the two axis values, which are enough to 
-           compute the equation of the ellipse.
-        2. with the center and two points through which the ellipse 
-           passes. The foci are computed from these axis values.
+        The arc is delimited by the starting and ending angles.
         """
-        # Either a and b or top_point and bottom_point must be specified
-        if (a is None or b is None) and \
-            (top_point is None or bottom_point is None):
-            raise ValueError("Either a and b or top_point and bottom_point \
-                must be provided")
-        # If a and b are not specified, compute them from the two points
-        if a is None:
-            a, b = Arc.compute_ellipse_axis(center, top_point, bottom_point)
         self.center = center
-        # check that a and b are not tuples
-        assert type(a) is not tuple, "a is a tuple"
         self.a = int(a)
         self.b = int(b)
-        self.tp = top_point
-        self.bp = bottom_point
+        self.ang_start = ang_start
+        self.ang_end = ang_end
 
 
 
-    # === init function ========================================
+    # === init function ================================================
 
 
 
@@ -94,17 +84,85 @@ class Arc():
         b = np.sqrt(float(Ax)* o + float(Ay))
         return a, b
     
+    @staticmethod
+    def init_with_points(
+        center, top_point, bottom_point, a=None, b=None
+    ):
+        """ Fonction dont le but est de rendre la classe compatible avec 
+        ce que j'avais fait avec la lampe. Ici seulement deux points de 
+        l'ellipse sont nécessaires pour définir l'arc.
+        """
+        if a is None or b is None:
+            a, b = Arc.compute_ellipse_axis(center, top_point, bottom_point)
+        arc = Arc(center, a, b)
+        ang1 = arc.point2rad(top_point)
+        ang2 = arc.point2rad(bottom_point)
+        arc.ang_start, arc.ang_end = Arc.shortest_clockwise_arc(ang1, ang2)
+        return arc
+
+    @staticmethod
+    def shortest_clockwise_arc(a1, a2):
+        """ Given two angles, order them such that the shortest clockwise 
+        arc is chosen.
+        """
+        # Normalize angles to be within 0 and 2*pi
+        a1 = a1 % (2 * math.pi)
+        a2 = a2 % (2 * math.pi)
+
+        # calculate the clockwise difference
+        diff = (a2 - a1) % (2 * math.pi)
+        
+        # if diff > pi, it means the shortest arc is actually counterclockwise
+        if diff > math.pi:
+            ang_start, ang_end = a2, a1
+        else:
+            ang_start, ang_end = a1, a2
+        return ang_start, ang_end
+    
+    def point_in_arc(self, pt:Tuple[float]) -> bool:
+        """ Check if a point is inside the arc. """
+        ang = self.point2rad(pt)
+        return self.ang_in_arc(ang)
+        
+
+    def ang_in_arc(
+            self, 
+            ang:Union[float, np.ndarray[int, np.dtype[np.float64]]]
+        ) -> Union[bool, np.ndarray[int, np.dtype[np.bool_]]]:
+        """ Check if an angle is inside the arc. """
+        self.ang_start = self.ang_start % (2 * math.pi)
+        self.ang_end = self.ang_end % (2 * math.pi)
+        ang = ang % (2 * math.pi)
+
+        if self.ang_start <= self.ang_end:
+            # Simple case: ang_start is less than ang_end
+            if isinstance(ang, np.ndarray):
+                return (self.ang_start <= ang) & (ang <= self.ang_end)
+            else:
+                return self.ang_start <= ang <= self.ang_end
+        else:
+            # The arc wraps around 2*pi
+            if isinstance(ang, np.ndarray):
+                return (self.ang_start <= ang) | (ang <= self.ang_end)
+            else:
+                return self.ang_start <= ang or ang <= self.ang_end
 
 
-    # === conversion functions ========================================
+    # === conversion functions =========================================
 
 
 
-    def point2rad(self, pt: Tuple[float]) -> float:
+    def point2rad(self, pt: Union[Tuple[float], np.ndarray[int, np.dtype[np.float64]]]) -> float:
         """ From a point on the ellipse, compute the radius from the center
         of the ellipse."""
         # get the angle of the point from the center of the ellipse
-        angle = atan2((pt[1]-self.center[1])/self.b, (pt[0]-self.center[0])/self.a)
+        if isinstance(pt, np.ndarray):
+            if pt.ndim == 1:
+                angle = np.atan2((pt[1]-self.center[1])/self.b, (pt[0]-self.center[0])/self.a)
+            else:
+                angle = np.atan2((pt[:,1]-self.center[1])/self.b, (pt[:,0]-self.center[0])/self.a)
+        else:
+            angle = atan2((pt[1]-self.center[1])/self.b, (pt[0]-self.center[0])/self.a)
         return angle
 
     def rad2point(self, angle:float) -> Tuple[float, float]:
@@ -128,9 +186,28 @@ class Arc():
         rad_points_self = self.generate_ellipse_points()
         rad_points_other = other.generate_ellipse_points()
         # find the intersection points between the two ellipses
-        xs, ys = Arc.intersections(rad_points_self, rad_points_other)
+        xs, ys = Arc._intersections(rad_points_self, rad_points_other)
+        # plot the points
+        # plt.plot(xs, ys, 'ro')
+        # plt.show()
+        angs = [other.point2rad((x, y)) for x, y in zip(xs, ys)]
         # find the point that is between the two limit points of ell2
-        x, y = other._sel_good_point(xs, ys)
+        ang = other._sel_good_ang(angs)
+        # in case no intersection was found, plot the necessary elements
+        # to understand what's going on.
+        if ang is None:
+            plt.plot(xs, ys, 'ro')
+            points = [self.rad2point(a) for a in rad_points_self]
+            x_coords = [p[0] for p in points]
+            y_coords = [p[1] for p in points]
+            plt.plot(rad_points_self[:,0], rad_points_self[:,1])  
+            plt.plot(rad_points_other[:,0], rad_points_other[:,1])     
+            plt.plot(self.rad2point(self.ang_start)[0], self.rad2point(self.ang_start)[1], 'go')
+            plt.plot(self.rad2point(self.ang_end)[0], self.rad2point(self.ang_end)[1], 'go')     
+            plt.plot(other.rad2point(other.ang_start)[0], other.rad2point(other.ang_start)[1], 'go')
+            plt.plot(other.rad2point(other.ang_end)[0], other.rad2point(other.ang_end)[1], 'go')     
+            plt.show()
+        x, y = other.rad2point(ang)
         return x, y
 
     def generate_ellipse_points(
@@ -154,10 +231,14 @@ class Arc():
         return result
 
     @staticmethod
-    def intersections(
+    def _intersections(
         pts_ell1: np.ndarray, 
         pts_ell2: np.ndarray
     ) -> Tuple[List[float], List[float]]:
+        """ From the two lists of points obtained from two Arcs, creates 
+        two "linar rings" which are used to compute the intersections 
+        between the ellipses in which the arcs are inscribed.
+        """
         # convert the points to a LinearRing
         lr1 = LinearRing(pts_ell1)
         lr2 = LinearRing(pts_ell2)
@@ -172,42 +253,40 @@ class Arc():
             # in case of no intersection, plot the ellipses to see what's going on
             plt.plot(pts_ell1[:,0], pts_ell1[:,1])
             plt.plot(pts_ell2[:,0], pts_ell2[:,1])
+            plt.plot(xs, ys, 'ro')
             plt.show()
         return xs, ys
 
-    def _sel_good_point(
+    def _sel_good_ang(
         self, 
-        xs:List[float], 
-        ys:List[float], 
+        angs:List[float]
     ) -> Tuple[float]:
         """ Two points are usually found as the intersections of the ellipse in 
         which the arc is inscribed and any other. 
         This function selects the point that is inscribed in the arc.
         """
         # find the min and max x and y of the arc
-        xmin = min(self.tp[0], self.bp[0])
-        xmax = max(self.tp[0], self.bp[0])
-        ymin = min(self.tp[1], self.bp[1])
-        ymax = max(self.tp[1], self.bp[1])
+        # xmin = min(self.tp[0], self.bp[0])
+        # xmax = max(self.tp[0], self.bp[0])
+        # ymin = min(self.tp[1], self.bp[1])
+        # ymax = max(self.tp[1], self.bp[1])
         # find the point that is between the two limit points of arc
-        sel_x = None
-        sel_y = None
-        num_points = len(xs)
-        for i in range(num_points):
-            xi = xs[i]
-            yi = ys[i]
-            if xi <= xmax and xi >= xmin and yi <= ymax and yi >= ymin:
-                sel_x = xi
-                sel_y = yi
-                break
-        # In case no point was found, select the closest one 
-        if sel_x is None or sel_y is None:
-            # select value closest to x between xmin and xmax
-            sel_x = min(xs, key=lambda x:abs(x-xmin))
-            # ysel equals the corresponding y value
-            sel_y = ys[xs.index(sel_x)]
-        assert type(sel_x) is float, "x is not a float"
-        return sel_x, sel_y
+        # sel_x = None
+        # sel_y = None
+        sel_ang = None
+        for ang in angs:
+            # self.point_in_arc(pt)
+            if self.ang_in_arc(ang):
+                sel_ang = ang
+        if sel_ang is None:
+            # get the closest angle to the start or end of the arc
+            min_diff_start = min([abs(ang - self.ang_start) for ang in angs])
+            min_diff_end = min([abs(ang - self.ang_end) for ang in angs])
+            if min_diff_start < min_diff_end:
+                sel_ang = self.ang_start
+            else:
+                sel_ang = self.ang_end
+        return sel_ang
 
 
 
@@ -228,55 +307,50 @@ class Arc():
         self.render_vectorized(img, color, bold)
 
     def render_vectorized(self, img, color=(0,0,0), bold=False):
-        pts = self.get_pixels_vectorized()
+        """Affiche les points de l'arc à partir des coordonnées 
+        calculées de manière vectorisée.
+        """
+        pts = self.get_pixels_vectorized_ang()
         # remove duplicates rows
-        pts = np.unique(pts, axis=0)
+        pts = np.unique(pts, axis=0).astype(np.int32)
+        # filter out points that are outside the image
+        pts = pts[(pts[:, 0] < img.shape[0]) & (pts[:, 1] < img.shape[1])]
+        pts = pts[(pts[:, 0] >= 0) & (pts[:, 1] >= 0)]
         if not bold:
             img[pts[:, 0], pts[:, 1]] = color
         else:
             for x, y in pts:
                 self._draw_bold_circle(img, y, x, color, bold=bold)
-
-    def get_pixels_vectorized(self) -> np.ndarray[int, np.dtype[np.int32]]:
-        # Define the bounds for x and y
-        xmax = max(self.tp[0],self.bp[0])
-        xmin = min(self.tp[0],self.bp[0])
-        ymax = max(self.tp[1],self.bp[1])
-        ymin = min(self.tp[1],self.bp[1])
-
+    
+    def get_pixels_vectorized_ang(self):
         x_range = np.arange(-self.a, self.a + 1)
-        x_in_bounds = (x_range + self.center[0] <= xmax) & (x_range + self.center[0] >= xmin)
-        x_range = x_range[x_in_bounds]
-        
         yp = self.b * np.sqrt(1 - (x_range/self.a)**2)
-        # get the x_range, yp pairs for yp in y_range
-        yp_in_bounds = (yp + self.center[1] <= ymax) & (yp + self.center[1] >= ymin)
-        yp_pts = np.array([x_range, yp]).T[yp_in_bounds]
+        yp_pts = np.array([x_range, yp]).T + self.center
+        yp_in_bounds = self.point_in_arc(yp_pts)
+        # yp_in_bounds = [self.point_in_arc(pt) for pt in yp_pts]
+        yp_pts = yp_pts[yp_in_bounds]
         ym = -yp
-        # get the x_range, ym pairs for ym in y_range
-        ym_in_bounds = (ym + self.center[1] <= ymax) & (ym + self.center[1] >= ymin)
-        ym_pts = np.array([x_range, ym]).T[ym_in_bounds]
-        
+        ym_pts = np.array([x_range, ym]).T + self.center
+        ym_in_bounds = self.point_in_arc(ym_pts)
+        # ym_in_bounds = [self.point_in_arc(pt) for pt in ym_pts]
+        ym_pts = ym_pts[ym_in_bounds]
+
         y_range = np.arange(-self.b, self.b + 1)
-        y_in_bounds = (y_range + self.center[1] <= ymax) & (y_range + self.center[1] >= ymin)
-        y_range = y_range[y_in_bounds]
-
         xp = self.a * np.sqrt(1 - (y_range/self.b)**2)
-        # get the x_range, yp pairs for yp in y_range
-        xp_in_bounds = (xp + self.center[0] <= xmax) & (xp + self.center[0] >= xmin)
-        xp_pts = np.array([xp, y_range]).T[xp_in_bounds]
+        xp_pts = np.array([xp, y_range]).T + self.center
+        xp_in_bounds = self.point_in_arc(xp_pts)
+        # xp_in_bounds = [self.point_in_arc(pt) for pt in xp_pts]
+        xp_pts = xp_pts[xp_in_bounds]
         xm = -xp
-        # get the x_range, ym pairs for ym in y_range
-        xm_in_bounds = (xm + self.center[0] <= xmax) & (xm + self.center[0] >= xmin)
-        xm_pts = np.array([xm, y_range]).T[xm_in_bounds]
+        xm_pts = np.array([xm, y_range]).T + self.center
+        xm_in_bounds = self.point_in_arc(xm_pts)
+        # xm_in_bounds = [self.point_in_arc(pt) for pt in xm_pts]
+        xm_pts = xm_pts[xm_in_bounds]
 
-        # merge the content of yp_pairs, ym_pairs, xp_pairs, xm_pairs such that there are no duplicate points
         pts = np.concatenate([yp_pts, ym_pts, xp_pts, xm_pts])
-        # add the center point to the merged_pairs
-        pts += np.array(self.center)
-        pts = pts.astype(np.int32)
-
         return pts
+
+
 
     def _draw_bold_circle(
         self, 
@@ -296,46 +370,29 @@ class Arc():
                 0
             )
 
-    def render_angles(
-        self, 
-        img: np.ndarray[int, np.dtype[np.int64]], 
-        color: Tuple[int]=(0,0,0), 
-        bold: bool=False
-    ) -> None:
-        n_points = 500
-        angle_tp = self.point2rad(self.tp)
-        angle_bp = self.point2rad(self.bp)
-        if abs(angle_bp - angle_tp) > np.pi:
-            if angle_bp > angle_tp:
-                angle_bp -= 2 * np.pi
-            else:
-                angle_tp -= 2 * np.pi
-        angles = np.linspace(angle_tp, angle_bp, n_points)
-
-        # Vectorized point calculation
-        x = self.center[0] + self.a * np.cos(angles)
-        y = self.center[1] + self.b * np.sin(angles)
-         # Round to nearest integer and clip to image boundaries
-        x = np.clip(np.round(x).astype(int), 0, img.shape[1] - 1)
-        y = np.clip(np.round(y).astype(int), 0, img.shape[0] - 1)
-        img[y, x] = color
-        # points = [self.rad2point(angle) for angle in angles]
-        # for px, py in points:
-        #     img[int(py), int(px)] = color
-        #     if bold:
-        #         cv2.circle(img, (int(px), int(py)), 1, color, -1)
-
     def get_params(self):
+        """ Récupération des paramètres de l'arc. A été prévue pour afficher 
+        tous les arcs de la figure Lampe en même temps mais finalement c'est 
+        plus lent que de les afficher séquentiellement.
+        """
         return [
             self.center[0], self.center[1], 
             self.a, 
             self.b, 
-            self.tp[0], self.tp[1], 
-            self.bp[0], self.bp[1]
+            # self.tp[0], self.tp[1], 
+            # self.bp[0], self.bp[1]
+            self.ang_start, self.ang_end
         ]
 
     @staticmethod
     def get_pixels_vectorized_2(center, a, b, tp, bp):
+        """ Méthode pour récupérer les points à afficher.
+        Utilise la vectorisation avec Jax. A été prévue pour afficher 
+        tous les arcs de la figure Lampe en même temps mais finalement c'est 
+        plus lent que de les afficher séquentiellement.
+        Par conséquent, cette méthode n'est plus utilisée mais je la 
+        laisse pour le cas où j'aurais besoin de la réutiliser.
+        """
         # Define the bounds for x and y
         xmax = jnp.max(jnp.array([tp[0],bp[0]]))
         xmin = jnp.min(jnp.array([tp[0],bp[0]]))
@@ -382,159 +439,13 @@ class Arc():
 
         return pts
 
-# === other tested rendering methods
-
-
-
-    def render_vanilla(
-        self, 
-        img: np.ndarray[int, np.dtype[np.int64]], 
-        color: Tuple[int]=(0,0,0), 
-        bold: bool=False
-    ) -> None:
-        # get the limits of the ellipse
-        xmax = max(self.tp[0],self.bp[0])
-        xmin = min(self.tp[0],self.bp[0])
-        ymax = max(self.tp[1],self.bp[1])
-        ymin = min(self.tp[1],self.bp[1])
-        # render the ellipse
-        for x in range(int(-self.a), int(self.a)): # sweep on the x axis
-            # check if the point is within the limits of the arc
-            if (x+self.center[0] <= xmax) and (x+self.center[0]>=xmin):
-                # compute the y coordinates of the points on the ellipse
-                yp = self.b * np.sqrt(1 - (x/self.a)**2)
-                ym = - yp
-                # check if the points are within the limits of the arc
-                if (yp+self.center[1] <= ymax) and (yp+self.center[1]>=ymin):
-                    img[int(x+self.center[0]), int(yp+self.center[1])] = color
-                    # draw all adjacent pixels
-                    self._draw_bold_circle(img, x, yp, color, bold=bold)
-                if (ym+self.center[1] <= ymax) and (ym+self.center[1]>=ymin):
-                    img[int(x+self.center[0]),int(ym+self.center[1])] = color
-                    self._draw_bold_circle(img, x, ym, color, bold=bold)
-        # do the same as above but sweep on the y axis
-        for y in range(int(-self.b), int(self.b)):
-            if (y+self.center[1] <= ymax) and (y+self.center[1]>=ymin):
-                xp = self.a * np.sqrt(1 - (y/self.b)**2)
-                xm = - xp
-                if (xp+self.center[0] <= xmax) and (xp+self.center[0]>=xmin):
-                    img[int(xp+self.center[0]), int(y+self.center[1])] = color
-                    self._draw_bold_circle(img, xp, y, color, bold=bold)
-                if (xm+self.center[0] <= xmax) and (xm+self.center[0]>=xmin):
-                    img[int(xm+self.center[0]), int(y+self.center[1])] = color
-                    self._draw_bold_circle(img, xm, y, color, bold=bold)
-
-    def render_jax(self, img, color=(0,0,0)):
-        color = jnp.array(color, dtype=np.uint8)
-        # Define the range for x and y
-        x_range = jnp.arange(-self.a, self.a + 1)
-        xmax = max(self.tp[0],self.bp[0])
-        xmin = min(self.tp[0],self.bp[0])
-        ymax = max(self.tp[1],self.bp[1])
-        ymin = min(self.tp[1],self.bp[1])
-        x_in_bounds = (x_range + self.center[0] <= xmax) & (x_range + self.center[0] >= xmin)
-        x_range = x_range[x_in_bounds]
-        y_range = jnp.arange(-self.b, self.b + 1)
-        y_in_bounds = (y_range + self.center[1] <= ymax) & (y_range + self.center[1] >= ymin)
-        y_range = y_range[y_in_bounds]
-
-        yp = self.b * jnp.sqrt(1 - (x_range/self.a)**2)
-        ym = -yp
-
-        xp = self.a * jnp.sqrt(1 - (y_range/self.b)**2)
-        xm = -xp
-
-        # get the x_range, yp pairs for yp in y_range
-        yp_in_bounds = (yp + self.center[1] <= ymax) & (yp + self.center[1] >= ymin)
-        yp_pairs = jnp.array([x_range, yp]).T[yp_in_bounds]
-        # get the x_range, ym pairs for ym in y_range
-        ym_in_bounds = (ym + self.center[1] <= ymax) & (ym + self.center[1] >= ymin)
-        ym_pairs = jnp.array([x_range, ym]).T[ym_in_bounds]
-
-        # get the x_range, yp pairs for yp in y_range
-        xp_in_bounds = (xp + self.center[0] <= xmax) & (xp + self.center[0] >= xmin)
-        xp_pairs = jnp.array([xp, y_range]).T[xp_in_bounds]
-        # get the x_range, ym pairs for ym in y_range
-        xm_in_bounds = (xm + self.center[0] <= xmax) & (xm + self.center[0] >= xmin)
-        xm_pairs = jnp.array([xm, y_range]).T[xm_in_bounds]
-
-        # merge the content of yp_pairs, ym_pairs, xp_pairs, xm_pairs such that there are no duplicate points
-        merged_pairs = jnp.concatenate([yp_pairs, ym_pairs, xp_pairs, xm_pairs])
-        # add the center point to the merged_pairs
-        merged_pairs = merged_pairs + jnp.array(self.center)
-        merged_pairs = merged_pairs.astype(jnp.int32)
-        # remove duplicates rows
-        merged_pairs = jnp.unique(merged_pairs, axis=0)
-        img.at[merged_pairs[:, 1], merged_pairs[:, 0]].set(color)
-
-    def render_bresenham(
-        self, 
-        img: np.ndarray[int, np.dtype[np.int64]], 
-        color: Tuple[int]=(0,0,0), 
-        bold: bool=False
-    ) -> None:
-        # Calculate start and end angles
-        start_angle = self.point2rad(self.tp)
-        end_angle = self.point2rad(self.bp)
-
-        # Ensure start_angle is smaller than end_angle
-        if start_angle > end_angle:
-            start_angle, end_angle = end_angle, start_angle
-
-        # Bresenham's ellipse algorithm
-        a2 = self.a * self.a
-        b2 = self.b * self.b
-        x = 0
-        y = self.b
-        px = 0
-        py = 2 * a2 * y
-
-        # Plot first set of points
-        self._plot_ellipse_points_bresenham(img, x, y, color, bold, start_angle, end_angle)
-
-        # Region 1
-        p = b2 - (a2 * self.b) + (0.25 * a2)
-        while px < py:
-            x += 1
-            px += 2 * b2
-            if p < 0:
-                p += b2 + px
-            else:
-                y -= 1
-                py -= 2 * a2
-                p += b2 + px - py
-            self._plot_ellipse_points_bresenham(img, x, y, color, bold, start_angle, end_angle)
-
-        # Region 2
-        p = (b2 * (x + 0.5) * (x + 0.5)) + (a2 * (y - 1) * (y - 1)) - (a2 * b2)
-        while y > 0:
-            y -= 1
-            py -= 2 * a2
-            if p > 0:
-                p += a2 - py
-            else:
-                x += 1
-                px += 2 * b2
-                p += a2 - py + px
-            self._plot_ellipse_points_bresenham(img, x, y, color, bold, start_angle, end_angle)
-
-    def _plot_ellipse_points_bresenham(
-        self, img, x, y, color, bold, start_angle, end_angle
-    ):
-        points = [
-            (self.center[0] + x, self.center[1] + y),
-            (self.center[0] - x, self.center[1] + y),
-            (self.center[0] + x, self.center[1] - y),
-            (self.center[0] - x, self.center[1] - y)
-        ]
-        for px, py in points:
-            angle = self.point2rad((px, py))
-            if start_angle <= angle <= end_angle:
-                if 0 <= px < img.shape[1] and 0 <= py < img.shape[0]:
-                    img[int(py), int(px)] = color
-                    if bold:
-                        cv2.circle(img, (int(px), int(py)), 1, color, -1)
-
-
-
+    def plot(self):
+        pts = self.generate_ellipse_points()
+        plt.plot(pts[:,0], pts[:,1])
+        # plt.show()
     
+
+if __name__ == "__main__":
+    arc = Arc((0,0), 1, 1)
+    pass
+

@@ -58,10 +58,10 @@ def init_borders() -> Tuple[Arc, Arc, Arc, Arc]:
     lcenter = (390, 100)
     rcenter = (390, 300)
     # initialize borders
-    sw = Arc(lcenter, top_point=left, bottom_point=base)
-    se = Arc(rcenter, top_point=right, bottom_point=base)
-    nw = Arc(rcenter, top_point=top, bottom_point=left)
-    ne = Arc(lcenter, top_point=top, bottom_point=right)
+    sw = Arc.init_with_points(lcenter, top_point=left, bottom_point=base)
+    se = Arc.init_with_points(rcenter, top_point=right, bottom_point=base)
+    nw = Arc.init_with_points(rcenter, top_point=top, bottom_point=left)
+    ne = Arc.init_with_points(lcenter, top_point=top, bottom_point=right)
     return sw, se, nw, ne
 
 def init_inner_arcs(sw, se, nw, ne, offset) -> Tuple[Arc, Arc, Arc, Arc]:
@@ -124,7 +124,7 @@ def init_losanges(md, mg):
     losanges = []
     for i in range(n_rows-1):
         for j in range(n_rows-1):
-            losange = Losange(mg[i], md[j], md[j+1], mg[i+1], 0.15, has_lines=True)
+            losange = Losange(mg[i], md[j], md[j+1], mg[i+1], inner_arc_interpolation=True, pad=0.15, has_lines=True)
             losanges.append(losange)
     return losanges
 

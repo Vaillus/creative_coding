@@ -2,6 +2,7 @@ import numpy as np
 from typing import Tuple, List, Generator
 
 from maroc.lampe.arc import Arc
+import matplotlib.pyplot as plt
 
 
 def interpolate(a,b,frac=0.5):
@@ -70,7 +71,6 @@ class Losange:
             inw, ine, isw, ise =\
                 self._gen_inner_arcs_offset()
         # compute the intersection points of the inner arcs
-        inw, ine, isw, ise = self._compute_inner_intersections(inw, ine, isw, ise)
         return inw, ine, isw, ise
 
     def _gen_inner_arcs_interpolated(self) -> Tuple[Arc, Arc, Arc, Arc]:
@@ -88,6 +88,12 @@ class Losange:
         ise = Losange.gen_inner_arc_interpolated(self.ose, self.onw, \
             self.osw, self.one, 
             self.pad)
+        # recompute the intersections of the inner arcs
+        isw = self._recompute_inner_arc_intersections(isw, ise, inw)
+        ine = self._recompute_inner_arc_intersections(ine, inw, ise)
+        inw = self._recompute_inner_arc_intersections(inw, ine, isw)
+        ise = self._recompute_inner_arc_intersections(ise, isw, ine)
+
         return inw, ine, isw, ise
         
     @staticmethod
@@ -108,10 +114,24 @@ class Losange:
         a = interpolate(para1.a, para2.a, frac)
         b = interpolate(para1.b, para2.b, frac)
         arc = Arc(center, a=a, b=b)
-        top_x, top_y = arc.intersect(orth1)
-        arc.tp = (top_x, top_y)
-        bot_x, bot_y = arc.intersect(orth2)
-        arc.bp = (bot_x, bot_y)
+        x1, y1 = arc.intersect(orth1)
+        a1 = arc.point2rad((x1, y1))
+        x2, y2 = arc.intersect(orth2)
+        a2 = arc.point2rad((x2, y2))
+        arc.ang_start, arc.ang_end = Arc.shortest_clockwise_arc(a1, a2)
+        return arc
+    
+    def _recompute_inner_arc_intersections(
+            self, 
+            arc:Arc, 
+            orth1:Arc, 
+            orth2:Arc
+        ) -> Arc:
+        x1, y1 = arc.intersect(orth1)
+        a1 = arc.point2rad((x1, y1))
+        x2, y2 = arc.intersect(orth2)
+        a2 = arc.point2rad((x2, y2))
+        arc.ang_start, arc.ang_end = Arc.shortest_clockwise_arc(a1, a2)
         return arc
         
     def _gen_inner_arcs_offset(self) -> Tuple[Arc, Arc, Arc, Arc]:
@@ -128,26 +148,12 @@ class Losange:
         """Generate an arc with the same proportions as the arc passed 
         as argument but with a specified relative position to the 
         given arc"""
-        new_arc = Arc(
+        new_arc = Arc.init_with_points(
             tuple(np.array(arc.center) + np.array(rel_pos)),
             top_point=tuple(np.array(arc.tp) + np.array(rel_pos)),
             bottom_point=tuple(np.array(arc.bp) + np.array(rel_pos))
         )
         return new_arc
-    
-    def _compute_inner_intersections(
-        self, inw:Arc, ine:Arc, isw:Arc, ise:Arc
-    ) -> Tuple[Arc, Arc, Arc, Arc]:
-        """Compute the intersection points of the inner arcs."""
-        inw.tp = inw.intersect(ine)
-        ine.tp = inw.tp
-        inw.bp = inw.intersect(isw)
-        isw.tp = inw.bp
-        ine.bp = ine.intersect(ise)
-        ise.tp = ine.bp
-        isw.bp = isw.intersect(ise)
-        ise.bp = isw.bp
-        return inw, ine, isw, ise
     
     def _generate_lines(self):
         """Generate three arcs equally spaced between inw and ise"""
