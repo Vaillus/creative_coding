@@ -8,6 +8,7 @@ import cv2
 import jax.numpy as jnp
 from jax import jit, vmap
 import math
+import maroc.toolkit.toolkit as tk
 
 @jit
 def _render_jax_core(a, b, center, tp, bp, img, color, x, y):
@@ -52,8 +53,8 @@ class Arc():
         The arc is delimited by the starting and ending angles.
         """
         self.center = center
-        self.a = int(a)
-        self.b = int(b)
+        self.a = a
+        self.b = b
         self.ang_start = ang_start
         self.ang_end = ang_end
 
@@ -298,32 +299,34 @@ class Arc():
         self, 
         img: jnp.ndarray[int, np.dtype[np.int64]], 
         color: Tuple[int]=(0,0,0), 
-        bold: bool=False
+        width: int=1
     ) -> None:
         # angles is not good because it might miss some points.
         # The choice will be between vanilla and bresenham.
         # I will try to parallelize one of them later.
         # self.render_vanilla(img, color)
-        self.render_vectorized(img, color, bold)
+        self.render_vectorized(img, color, width)
 
-    def render_vectorized(self, img, color=(0,0,0), bold=False):
+    def render_vectorized(self, img, color=(0,0,0), width=1):
         """Affiche les points de l'arc à partir des coordonnées 
         calculées de manière vectorisée.
         """
         pts = self.get_pixels_vectorized_ang()
         # remove duplicates rows
-        pts = np.unique(pts, axis=0).astype(np.int32)
+        pts = pts.astype(np.int32)
+        pts = np.unique(pts, axis=0)
         # filter out points that are outside the image
         pts = pts[(pts[:, 0] < img.shape[0]) & (pts[:, 1] < img.shape[1])]
         pts = pts[(pts[:, 0] >= 0) & (pts[:, 1] >= 0)]
-        if not bold:
+        if width == 1:
             img[pts[:, 0], pts[:, 1]] = color
         else:
-            for x, y in pts:
-                self._draw_bold_circle(img, y, x, color, bold=bold)
+            tk.draw_fractional_thick_line(img, pts, width)
+            # for x, y in pts:
+            #     self._draw_bold_circle(img, y, x, color, width)
     
     def get_pixels_vectorized_ang(self):
-        x_range = np.arange(-self.a, self.a + 1)
+        x_range = np.arange(-int(self.a), int(self.a) + 1)
         yp = self.b * np.sqrt(1 - (x_range/self.a)**2)
         yp_pts = np.array([x_range, yp]).T + self.center
         yp_in_bounds = self.point_in_arc(yp_pts)
@@ -335,7 +338,7 @@ class Arc():
         # ym_in_bounds = [self.point_in_arc(pt) for pt in ym_pts]
         ym_pts = ym_pts[ym_in_bounds]
 
-        y_range = np.arange(-self.b, self.b + 1)
+        y_range = np.arange(-int(self.b), int(self.b) + 1)
         xp = self.a * np.sqrt(1 - (y_range/self.b)**2)
         xp_pts = np.array([xp, y_range]).T + self.center
         xp_in_bounds = self.point_in_arc(xp_pts)
@@ -358,14 +361,14 @@ class Arc():
         x: int, 
         y: int,
         color: Tuple[int], 
-        bold:bool
+        width: int
     ) -> None:
         """ Only way I found to draw big points"""
-        if bold:
+        if width > 1:
             cv2.circle(
                 img, 
                 (x, y), 
-                2, 
+                width, 
                 color, 
                 0
             )

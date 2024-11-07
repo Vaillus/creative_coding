@@ -3,18 +3,27 @@ import cv2
 import math
 from typing import Tuple, List, Optional
 import matplotlib.pyplot as plt
+from PIL import Image
 
 import maroc.toolkit.toolkit as tk
+from maroc.lampe.arc import Arc
+import maroc.goutte.texture as tex
 
 class Goutte:
-    def __init__(self, height, angle, center, debug=False):
+    def __init__(self, height, angle, center, width=1.0, debug=False):
         self.hei = height # hauteur de la goutte
         self.ang = angle # angle du cône (rad)
-        self.rad = self._circle_radius() # rayon du cercle à la base
-        self.wid = 2 * self.rad # largeur de la goutte
-        self.tri_hei = self._triangle_height() # hauteur du triangle au sommet
-        self.tri_wid = self._triangle_width() # largeur de la base du triangle
-        self.d_tri_cir = self._dist_tri_center_circle() # distance entre 
+        self.alpha = self.ang / 2.0
+        self.y1 = self.hei * (1.0 - np.sin(self.alpha))
+        self.x1 = self.y1 * np.tan(self.alpha)
+        self.k = float(self.hei * (1.0-np.sin(self.alpha)) / (np.cos(self.alpha)**2))
+        self.rad = self.hei - self.k
+        # self.rad = self._circle_radius() # rayon du cercle à la base
+        self.cir_center = (0.0, self.rad)
+        # self.wid = 2.0 * self.rad # largeur de la goutte
+        # self.tri_hei = self._triangle_height() # hauteur du triangle au sommet
+        # self.tri_wid = self._triangle_width() # largeur de la base du triangle
+        # self.d_tri_cir = self._dist_tri_center_circle() # distance entre 
         # le centre du cercle et la base du triangle
         # assert self.hei == self.rad + self.d_tri_cir + self.tri_hei,\
             #   "error in calculus"
@@ -32,7 +41,10 @@ class Goutte:
         self.top_pt = np.add(self.top_pt, diff)
         self.l_pt = np.add(self.l_pt, diff)
         self.r_pt = np.add(self.r_pt, diff)
+        self.cir_center = np.add(self.cir_center, diff)
         self.center = center
+        self.width = width
+        # determines wether debug points are displayed.
         self.debug = debug
 
 
@@ -44,7 +56,8 @@ class Goutte:
         """ Compute the radius of the circle at the bottom of the drop 
         from the height of the figure and the aperture of the top angle.
         """
-        r = float(self.hei * (np.sin(self.ang/2))/(1 + np.sin(self.ang/2)))
+        r = self.hei * np.sin(self.alpha) / (np.cos(self.alpha)**2)
+        r = float(r)
         return r
     
     def _triangle_height(self):
@@ -71,20 +84,21 @@ class Goutte:
         return d
 
     def _init_points(self):
-        bot_pt = (self.wid / 2.0, 0)
-        top_pt = (self.wid / 2.0, self.hei)
-        l_pt = (self.wid / 2.0 - self.tri_wid, self.rad + self.d_tri_cir)
-        r_pt = (self.wid / 2.0 + self.tri_wid, self.rad + self.d_tri_cir)
+        bot_pt = (0.0, 0.0)
+        top_pt = (0.0, self.hei)
+        l_pt = (-self.x1, self.hei - self.y1)
+        r_pt = (self.x1, self.hei - self.y1)
         return bot_pt, top_pt, l_pt, r_pt
     
     @staticmethod
-    def scaled_goutte(img, ref_goutte: 'Goutte', scale: float):
+    def scaled_goutte(ref_goutte: 'Goutte', scale: float):
         """initialize a new Goutte inside another one such that they are 
         correctly spaced from one another. (could also be outside)"""
         # Step 1: Compute the new radius and the new bottom point
-        circ_center = np.add(ref_goutte.bot_pt, (0, ref_goutte.rad))
+        # circ_center = np.add(ref_goutte.bot_pt, (0.0, ref_goutte.rad))
+        circ_center = ref_goutte.cir_center
         new_rad = ref_goutte.rad * scale
-        new_bot_pt = np.subtract(circ_center, (0, new_rad))
+        new_bot_pt = np.subtract(circ_center, (0.0, new_rad))
         # Step 2: Compute the new left and right points. 
         # They are aligned with the old ones on the axes from the center 
         # of the circle.
@@ -144,26 +158,30 @@ class Goutte:
 
     def render(self, img: np.ndarray[int, np.dtype[np.int32]]):
         # render the two diagonal top lines of the drop
-        img = cv2.line(
+        img = tk.line(
             img, 
             tk.tup_float2int(self.top_pt), 
             tk.tup_float2int(self.l_pt), 
-            (0,0,0)
+            (0,0,0),
+            self.width
         )
-        img = cv2.line(img, 
+        img = tk.line(img, 
             tk.tup_float2int(self.top_pt), 
             tk.tup_float2int(self.r_pt), 
-            (0,0,0)
+            (0,0,0),
+            self.width
         )
         # render the bottom curve of the drop
-        cir_center = tuple(np.add((0, self.rad), self.bot_pt))
-        lpt_ang = tk.point2rad(cir_center, self.l_pt)
-        rpt_ang = tk.point2rad(cir_center, self.r_pt)
-        ang_vec = Goutte.gen_largest_arc(lpt_ang, rpt_ang)
+        cir_center = self.cir_center
+        lpt_ang = tk.point2rad(cir_center, tk.tup_float2int(self.l_pt))
+        rpt_ang = tk.point2rad(cir_center, tk.tup_float2int(self.r_pt))
+        arc = Arc(cir_center, self.rad, self.rad, lpt_ang, rpt_ang)
+        arc.render(img, (0,0,0), width=self.width)
+        # ang_vec = Goutte.gen_largest_arc(lpt_ang, rpt_ang)
         # ang_vec = [lpt_ang, rpt_ang]
-        pts = Goutte.rad2point(cir_center, self.rad, ang_vec)
-        for pt in pts:
-            tk.set_pixel(img, *pt, (0, 0, 0))
+        # pts = Goutte.rad2point(cir_center, self.rad, ang_vec)
+        # for pt in pts:
+        #     tk.set_pixel(img, *pt, (0, 0, 0))
         # plot the four main points in red
         if self.debug:  
             tk.render_debug_point(img, self.bot_pt)
@@ -172,62 +190,44 @@ class Goutte:
             tk.render_debug_point(img, self.r_pt)
             tk.render_debug_point(img, cir_center)
 
-    @staticmethod
-    def gen_largest_arc(ang1:float, ang2:float) -> List[float]:
-        """generate the largest arc between two angles in radians.
-        ang1 is the first angle.
-        ang2 is the second angle.
-        """
-        n_points = 300
-        ang_sub = min(ang1, ang2)
-        ang1 -= ang_sub
-        ang2 -= ang_sub
-        not_zero_ang = max(ang1, ang2)
-        clockwise = not_zero_ang <= np.pi
-        if clockwise:
-            angs = np.linspace(not_zero_ang, 2*np.pi, n_points)
-        else:
-            angs = np.linspace(0.0, not_zero_ang, n_points)
-        angs += ang_sub
-        return angs
-
-    @staticmethod
-    def rad2point(
-        center: Tuple[float, float], 
-        rad: float,
-        angles:List[float]
-    ) -> List[Tuple[float, float]]:
-        """convert a list of angles in radians to a list of points on 
-        the ellipse.
-        center is the center of the ellipse.
-        rad is the radius of the ellipse.
-        angles is a list of angles in radians.
-        """
-        x = []
-        y = []
-        for angle in angles:
-            xi, yi = tk.rad2point(center, rad, angle)
-            x.append(xi)
-            y.append(yi)
-        return list(zip(x, y))
 
 if __name__ == "__main__":
-    ang = float(np.deg2rad(45))
-    goutte = Goutte(300, ang, (200, 200))
-    img = np.ones((400, 400, 3), dtype = "uint8") * 255
-    goutte2 = Goutte.scaled_goutte(img, goutte, 0.85)
+    siz = 401
+    ang = float(np.deg2rad(37.0))
+    hei = 3/4*siz
+
+    goutte = Goutte(hei, ang, (siz/2, siz/2), width = 1)
+    goutte2 = Goutte.scaled_goutte(goutte, 0.89)
+    goutte.width = 3.0
+    goutte2.width = 2.0
+    img = np.ones((siz, siz, 3), dtype = "uint8") * 255
     goutte.render(img)
     goutte2.render(img)
-    num_labels, labels = cv2.connectedComponents(img[:,:,0], connectivity=4)
-    plt.imshow(labels, cmap='gray')  # Use 'gray' colormap for grayscale
-    plt.colorbar()  # Optional: adds a color scale
-    plt.show()
-    img = img[::-1,:,:]
-    while True:
-        cv2.imshow("output", img)
+    mask = tk.flood_fill_mask(img, (int(siz/2), int(siz/2)))
+    img2 = np.zeros_like(img) + 255
+    tex = tex.HexTexture(siz, siz, 2/3)
+    imgs = []
+
+    t = 0
+    T = 53
+    while t < T:
+        t+=1
+        tex.add_to_pos(1)
+        img = np.ones((siz, siz, 3), dtype = "uint8") * 255
+        img2 = np.zeros_like(img) + 255
+        goutte.render(img)
+        goutte2.render(img)
+        img2 = tex.render(img2)
+        # use the mask to fill img with img2 where mask is True
+        img[mask] = img2[mask]
+        tk.render_debug_point(img, goutte.top_pt, small=True, color='red')
+        tk.render_debug_point(img, goutte.l_pt, small=True, color='red')
+
+        tk.render(img)
+        tk.add_frame(imgs, img)
         if cv2.waitKey(1) == ord('q'):
             cv2.destroyAllWindows()
             break
-
+    tk.save_gif(imgs, 'test.gif')
     
 
