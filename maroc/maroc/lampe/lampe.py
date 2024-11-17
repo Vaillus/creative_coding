@@ -124,16 +124,16 @@ def init_losanges(md, mg):
     losanges = []
     for i in range(n_rows-1):
         for j in range(n_rows-1):
-            losange = Losange(mg[i], md[j], md[j+1], mg[i+1], inner_arc_interpolation=True, pad=0.15, has_lines=True)
+            losange = Losange(mg[i], md[j], md[j+1], mg[i+1], inner_arc_interpolation=True, pad=0.11, has_lines=True)
             losanges.append(losange)
     return losanges
 
 def render(imgs, sw: Arc, se: Arc, nw: Arc, ne: Arc, losanges: List[Losange]):
     img = np.ones((400, 400, 3), dtype = "uint8") * 255
-    sw.render(img, bold=False)
-    se.render(img, bold=False)
-    nw.render(img, bold=False)
-    ne.render(img, bold=False)
+    sw.render(img, width=2)
+    se.render(img, width=2)
+    nw.render(img, width=2)
+    ne.render(img, width=2)
     for losange in losanges:
         losange.render(img)
     cv2.imshow("output", img)

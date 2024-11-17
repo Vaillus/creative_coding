@@ -6,11 +6,19 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 import maroc.toolkit.toolkit as tk
+from maroc.toolkit.line import Line
 from maroc.lampe.arc import Arc
 import maroc.goutte.texture as tex
 
 class Goutte:
-    def __init__(self, height, angle, center, width=1.0, debug=False):
+    def __init__(
+        self, 
+        height: float, 
+        angle: float, 
+        center: Tuple[float, float], 
+        width: float = 1.0, 
+        debug: bool = False
+    ):
         self.hei = height # hauteur de la goutte
         self.ang = angle # angle du cône (rad)
         self.alpha = self.ang / 2.0
@@ -44,6 +52,9 @@ class Goutte:
         self.cir_center = np.add(self.cir_center, diff)
         self.center = center
         self.width = width
+        self.arc = self.init_arc()
+        self.right_line = Line(self.r_pt, self.top_pt)
+        self.left_line = Line(self.l_pt, self.top_pt)
         # determines wether debug points are displayed.
         self.debug = debug
 
@@ -89,6 +100,18 @@ class Goutte:
         l_pt = (-self.x1, self.hei - self.y1)
         r_pt = (self.x1, self.hei - self.y1)
         return bot_pt, top_pt, l_pt, r_pt
+    
+    def init_arc(self) -> Arc:
+        lpt_ang = tk.point2rad(self.cir_center, self.l_pt)
+        rpt_ang = tk.point2rad(self.cir_center, self.r_pt)
+        arc = Arc(
+            center=self.cir_center, 
+            a=self.rad, 
+            b=self.rad, 
+            ang_end=lpt_ang, 
+            ang_start=rpt_ang
+        )
+        return arc
     
     @staticmethod
     def scaled_goutte(ref_goutte: 'Goutte', scale: float):
@@ -158,25 +181,10 @@ class Goutte:
 
     def render(self, img: np.ndarray[int, np.dtype[np.int32]]):
         # render the two diagonal top lines of the drop
-        img = tk.line(
-            img, 
-            tk.tup_float2int(self.top_pt), 
-            tk.tup_float2int(self.l_pt), 
-            (0,0,0),
-            self.width
-        )
-        img = tk.line(img, 
-            tk.tup_float2int(self.top_pt), 
-            tk.tup_float2int(self.r_pt), 
-            (0,0,0),
-            self.width
-        )
+        img = self.right_line.render(img, (0,0,0), self.width)
+        img = self.left_line.render(img, (0,0,0), self.width)
         # render the bottom curve of the drop
-        cir_center = self.cir_center
-        lpt_ang = tk.point2rad(cir_center, tk.tup_float2int(self.l_pt))
-        rpt_ang = tk.point2rad(cir_center, tk.tup_float2int(self.r_pt))
-        arc = Arc(cir_center, self.rad, self.rad, lpt_ang, rpt_ang)
-        arc.render(img, (0,0,0), width=self.width)
+        self.arc.render(img, (0,0,0), width=self.width)
         # ang_vec = Goutte.gen_largest_arc(lpt_ang, rpt_ang)
         # ang_vec = [lpt_ang, rpt_ang]
         # pts = Goutte.rad2point(cir_center, self.rad, ang_vec)
@@ -198,8 +206,8 @@ if __name__ == "__main__":
 
     goutte = Goutte(hei, ang, (siz/2, siz/2), width = 1)
     goutte2 = Goutte.scaled_goutte(goutte, 0.89)
-    goutte.width = 3.0
-    goutte2.width = 2.0
+    goutte.width = 3
+    goutte2.width = 2
     img = np.ones((siz, siz, 3), dtype = "uint8") * 255
     goutte.render(img)
     goutte2.render(img)
@@ -220,8 +228,8 @@ if __name__ == "__main__":
         img2 = tex.render(img2)
         # use the mask to fill img with img2 where mask is True
         img[mask] = img2[mask]
-        tk.render_debug_point(img, goutte.top_pt, small=True, color='red')
-        tk.render_debug_point(img, goutte.l_pt, small=True, color='red')
+        # tk.render_debug_point(img, goutte.top_pt, small=True, color='red')
+        # tk.render_debug_point(img, goutte.l_pt, small=True, color='red')
 
         tk.render(img)
         tk.add_frame(imgs, img)

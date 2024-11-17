@@ -1,9 +1,11 @@
 import cv2
 import numpy as np
 from math import atan2
-from typing import Tuple, Union
+from typing import Tuple, Union, List
 import matplotlib.colors as mcolors
 from PIL import Image
+
+from maroc.toolkit.line import Line
 
 
 
@@ -47,20 +49,22 @@ def line(
     color: Union[Tuple[int, int, int], str] = (0, 0, 255),
     width: int = 1
 ) -> np.ndarray:
-    if isinstance(color, str):
-        color = color_name_to_rgb(color)
-    # invert x and y for each point
-    pt1 = (pt1[1], pt1[0])
-    pt2 = (pt2[1], pt2[0])
-    pt1 = tup_float2int(pt1)
-    pt2 = tup_float2int(pt2)
-    # get the points of the line between the two points
-    pts = get_pixels_line(pt1, pt2)
-    pts = pts[:,::-1]
-    if width == 1:
-        img[pts[:, 0], pts[:, 1]] = color
-    else:
-        draw_fractional_thick_line(img, pts, width)
+    return Line(pt1, pt2).render(img, color, width)
+
+
+def thick_line(
+    img: np.ndarray, 
+    pts: List[Tuple[float, float]], 
+    color: Union[Tuple[int, int, int], str] = (0, 0, 255),
+    width: int = 1
+):
+    bin_buffer = np.zeros_like(img[:,:,0])
+    bin_buffer[pts[:, 0], pts[:, 1]] = 1
+    # Create structuring element (e.g., a disk-shaped kernel)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (width, width))
+    # Perform dilation
+    thick_line_mask = cv2.dilate(bin_buffer.astype(np.uint8), kernel)
+    img[thick_line_mask == 1] = color
     return img
 
 def triangle(
@@ -71,9 +75,9 @@ def triangle(
     color: Union[Tuple[int, int, int], str] = (0, 0, 255),
     width: int = 1
 ):
-    img = line(img, pt1, pt2, color, width)
-    img = line(img, pt2, pt3, color, width)
-    img = line(img, pt3, pt1, color, width)
+    img = Line(pt1, pt2).render(img, color, width)
+    img = Line(pt2, pt3).render(img, color, width)
+    img = Line(pt3, pt1).render(img, color, width)
     return img
 
 def get_pixels_line(pt1:Tuple[int, int], pt2:Tuple[int, int]):
@@ -149,7 +153,14 @@ def draw_bold_circle(
             0
         )
 
-def draw_fractional_thick_line(matrix, line_pixels, thickness):
+def draw_fractional_thick_line_2(
+        matrix, 
+        line_pixels, 
+        thickness
+    ):
+    """Mais mdr ça dessine un carré autour du point en fait, pas 
+    étonnant que ce soit de la merde.
+    """
     half_thick = int(thickness // 2)
     for (x, y) in line_pixels:
         # apply the thickness by drawing a small square or circle around each pixel
@@ -159,7 +170,12 @@ def draw_fractional_thick_line(matrix, line_pixels, thickness):
                 if 0 <= nx < matrix.shape[0] and 0 <= ny < matrix.shape[1]:
                     matrix[nx, ny] = 1  # set to black or any color you want
 
-def draw_fractional_thick_line_2(matrix, line_pixels, thickness, color=(0, 0, 0)):
+def draw_fractional_thick_line(
+        matrix, 
+        line_pixels, 
+        thickness, 
+        color=(0, 0, 0)
+    ):
     half_thick = thickness / 2.0  # allow fractional thickness
     for (x, y) in line_pixels:
         # expand around each line pixel
@@ -248,9 +264,12 @@ def interpolate(a,b,frac):
     valmax = max(a,b)
     diff = valmax - valmin
     if a < b:
-        return float(valmin) + diff * frac
+        val = float(valmin) + diff * frac
     else:
-        return float(valmax) - diff * frac
+        val = float(valmax) - diff * frac
+    assert val <= valmax, "The interpolated value is greater than the maximum value"
+    assert val >= valmin, "The interpolated value is lower than the minimum value"
+    return val
     
 def interpolate_pts(
         pt1: Tuple[float, ...], 
@@ -293,3 +312,4 @@ def flood_fill_mask(
                     stack.append((nx, ny))
         
     return mask
+

@@ -198,13 +198,13 @@ class Losange:
         color: Tuple[int]=(0,0,0)
     ) -> None:
         bold = self.thickness == 2
-        self.inw.render(img, color, bold=bold)
-        self.ine.render(img, color, bold=bold)
-        self.isw.render(img, color, bold=bold)
-        self.ise.render(img, color, bold=bold)  
+        self.inw.render(img, color, width=self.thickness)
+        self.ine.render(img, color, width=self.thickness)
+        self.isw.render(img, color, width=self.thickness)
+        self.ise.render(img, color, width=self.thickness)  
         if self.has_lines:
             for line in self.lines:
-                line.render(img, color, bold=bold)
+                line.render(img, color, width=self.thickness)
     
     def get_arcs(self):
         arcs = [self.inw, self.ine, self.isw, self.ise]

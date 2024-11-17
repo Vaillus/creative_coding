@@ -50,7 +50,8 @@ class Arc():
     ):
         """ An arc is inscribed in an ellipse defined by its center and 
         its two axes a (horizontal) and b (vertical).
-        The arc is delimited by the starting and ending angles.
+        The arc is delimited by the starting and ending angles, such that
+        the arc is always defined in a clockwise manner.
         """
         self.center = center
         self.a = a
@@ -135,19 +136,18 @@ class Arc():
         self.ang_end = self.ang_end % (2 * math.pi)
         ang = ang % (2 * math.pi)
 
-        if self.ang_start <= self.ang_end:
+        if self.ang_start >= self.ang_end:
             # Simple case: ang_start is less than ang_end
             if isinstance(ang, np.ndarray):
-                return (self.ang_start <= ang) & (ang <= self.ang_end)
+                return (self.ang_start >= ang) & (ang >= self.ang_end)
             else:
-                return self.ang_start <= ang <= self.ang_end
+                return self.ang_start >= ang >= self.ang_end
         else:
             # The arc wraps around 2*pi
             if isinstance(ang, np.ndarray):
-                return (self.ang_start <= ang) | (ang <= self.ang_end)
+                return (self.ang_start >= ang) | (ang >= self.ang_end)
             else:
-                return self.ang_start <= ang or ang <= self.ang_end
-
+                return self.ang_start >= ang or ang >= self.ang_end
 
     # === conversion functions =========================================
 
@@ -291,6 +291,86 @@ class Arc():
 
 
 
+    # === properties ===================================================
+
+
+
+    def get_length(self):
+        """Get the length of the arc between the two angles using numerical integration.
+        The exact formula for an elliptical arc requires an elliptic integral, which
+        is computationally expensive. We use numerical integration for better accuracy.
+        """
+        # Ensure angles are properly ordered
+        # start = self.ang_start % (2 * math.pi)
+        # end = self.ang_end % (2 * math.pi)
+        # if end < start:
+        #     end += 2 * math.pi
+            
+        # Number of points for numerical integration
+        n = 1000
+        if self.ang_start >= self.ang_end:
+            t = np.linspace(self.ang_start, self.ang_end, n)
+            # Derivative components
+            dx_dt = -self.a * np.sin(t)
+            dy_dt = self.b * np.cos(t)
+            # Integrand for arc length
+            integrand = np.sqrt(dx_dt**2 + dy_dt**2)
+            # Numerical integration using trapezoidal rule
+            length = np.trapz(integrand, t)
+        else:
+            ang_length = self.ang_start + (2*np.pi - self.ang_end)
+            frac_start = self.ang_start / ang_length
+            t1 = np.linspace(0.0, self.ang_start, int(frac_start*n))
+            t2 = np.linspace(self.ang_end, 2*np.pi, n - len(t1))
+            # Derivative components
+            dx_dt1 = -self.a * np.sin(t1)
+            dy_dt1 = self.b * np.cos(t1)
+            # Integrand for arc length
+            integrand1 = np.sqrt(dx_dt1**2 + dy_dt1**2)
+            # Numerical integration using trapezoidal rule
+            length1 = np.trapz(integrand1, t1)
+            # Derivative components
+            dx_dt2 = -self.a * np.sin(t2)
+            dy_dt2 = self.b * np.cos(t2)
+            # Integrand for arc length
+            integrand2 = np.sqrt(dx_dt2**2 + dy_dt2**2)
+            # Numerical integration using trapezoidal rule
+            length2 = np.trapz(integrand2, t2)
+            length = length1 + length2
+        return length
+
+    def interpolate(self, frac:float):
+        """ Interpolate the angle of the arc at a given fraction of the 
+        arc length.
+        """
+        if self.ang_start >= self.ang_end:
+            ang = tk.interpolate(self.ang_start, self.ang_end, frac)
+        else:
+            # in this case, we have to interpolate over [ang_start, 0] or [2*pi, ang_end]
+            # depending on the value of frac.
+            ang_length = self.ang_start + (2*np.pi - self.ang_end)
+            frac_start = self.ang_start / ang_length
+            if frac < frac_start:
+                ang = tk.interpolate(
+                    self.ang_start, 
+                    0.0, 
+                    frac/frac_start
+                )
+            else:
+                ang = tk.interpolate(
+                    2*np.pi, 
+                    self.ang_end, 
+                    (frac - frac_start)/(1.0 - frac_start)
+                )
+        assert self.ang_in_arc(ang), f"The angle {np.rad2deg(ang)} is not in the arc \n \
+            [start: {np.rad2deg(self.ang_start)}, end: {np.rad2deg(self.ang_end)}] \n \
+            There is a problem in the interpolation."
+        
+        return ang
+
+
+
+
     # === rendering ====================================================
 
 
@@ -321,11 +401,17 @@ class Arc():
         if width == 1:
             img[pts[:, 0], pts[:, 1]] = color
         else:
-            tk.draw_fractional_thick_line(img, pts, width)
+            img = tk.thick_line(img, pts, color, width)
+            # tk.draw_fractional_thick_line(img, pts, width)
             # for x, y in pts:
             #     self._draw_bold_circle(img, y, x, color, width)
     
     def get_pixels_vectorized_ang(self):
+        """Get the pixels of the arc by using an angular range.
+
+        Returns:
+            _type_: _description_
+        """
         x_range = np.arange(-int(self.a), int(self.a) + 1)
         yp = self.b * np.sqrt(1 - (x_range/self.a)**2)
         yp_pts = np.array([x_range, yp]).T + self.center
@@ -353,25 +439,6 @@ class Arc():
         pts = np.concatenate([yp_pts, ym_pts, xp_pts, xm_pts])
         return pts
 
-
-
-    def _draw_bold_circle(
-        self, 
-        img:np.ndarray[int, np.dtype[np.int64]], 
-        x: int, 
-        y: int,
-        color: Tuple[int], 
-        width: int
-    ) -> None:
-        """ Only way I found to draw big points"""
-        if width > 1:
-            cv2.circle(
-                img, 
-                (x, y), 
-                width, 
-                color, 
-                0
-            )
 
     def get_params(self):
         """ Récupération des paramètres de l'arc. A été prévue pour afficher 
