@@ -159,9 +159,9 @@ class Arc():
         # get the angle of the point from the center of the ellipse
         if isinstance(pt, np.ndarray):
             if pt.ndim == 1:
-                angle = np.atan2((pt[1]-self.center[1])/self.b, (pt[0]-self.center[0])/self.a)
+                angle = np.arctan2((pt[1]-self.center[1])/self.b, (pt[0]-self.center[0])/self.a)
             else:
-                angle = np.atan2((pt[:,1]-self.center[1])/self.b, (pt[:,0]-self.center[0])/self.a)
+                angle = np.arctan2((pt[:,1]-self.center[1])/self.b, (pt[:,0]-self.center[0])/self.a)
         else:
             angle = atan2((pt[1]-self.center[1])/self.b, (pt[0]-self.center[0])/self.a)
         return angle
@@ -367,8 +367,38 @@ class Arc():
             There is a problem in the interpolation."
         
         return ang
-
-
+    
+    def get_derivative_y(self, ang):
+        """ Get the derivative of the arc with respect to y. """
+        num = self.b * np.cos(ang)
+        den = self.a * np.sin(ang)
+        deriv = - num / den
+        return deriv
+    
+    def get_derivative_x(self, ang):
+        """ Get the derivative of the arc with respect to x. """
+        num = self.a * np.sin(ang)
+        den = self.b * np.cos(ang)
+        deriv = - num / den
+        return deriv
+    
+    def get_ys_from_x(self, x):
+        """ Get the x coordinates of the arc for a given y coordinate. """
+        # Calculate the term under the square root
+        term = 1 - ((x - self.center[0]) ** 2) / (self.a ** 2)
+        
+        # Calculate both y values
+        y1 = self.center[1] + self.b * math.sqrt(term)  # Upper half
+        y2 = self.center[1] - self.b * math.sqrt(term)  # Lower half
+        return (y1, y2)
+    
+    def get_xs_from_y(self, y):
+        """ Get the x coordinates of the arc for a given y coordinate. """
+        # Calculate the term under the square root
+        term = 1 - ((y - self.center[1]) ** 2) / (self.b ** 2)
+        x1 = self.center[0] - self.a * math.sqrt(term)  # Right half
+        x2 = self.center[0] + self.a * math.sqrt(term)  # Left half
+        return (x1, x2)
 
 
     # === rendering ====================================================

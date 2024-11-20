@@ -26,15 +26,7 @@ class Goutte:
         self.x1 = self.y1 * np.tan(self.alpha)
         self.k = float(self.hei * (1.0-np.sin(self.alpha)) / (np.cos(self.alpha)**2))
         self.rad = self.hei - self.k
-        # self.rad = self._circle_radius() # rayon du cercle à la base
         self.cir_center = (0.0, self.rad)
-        # self.wid = 2.0 * self.rad # largeur de la goutte
-        # self.tri_hei = self._triangle_height() # hauteur du triangle au sommet
-        # self.tri_wid = self._triangle_width() # largeur de la base du triangle
-        # self.d_tri_cir = self._dist_tri_center_circle() # distance entre 
-        # le centre du cercle et la base du triangle
-        # assert self.hei == self.rad + self.d_tri_cir + self.tri_hei,\
-            #   "error in calculus"
         self.bot_pt, self.top_pt, self.l_pt, self.r_pt = self._init_points()
         # moving the figure such that its center is at the given center
         # compute the offset of the center of the figure from the given 
@@ -199,7 +191,7 @@ class Goutte:
             tk.render_debug_point(img, cir_center)
 
 
-if __name__ == "__main__":
+def base():
     siz = 401
     ang = float(np.deg2rad(37.0))
     hei = 3/4*siz
@@ -213,19 +205,19 @@ if __name__ == "__main__":
     goutte2.render(img)
     mask = tk.flood_fill_mask(img, (int(siz/2), int(siz/2)))
     img2 = np.zeros_like(img) + 255
-    tex = tex.HexTexture(siz, siz, 2/3)
+    texture = tex.HexTexture(siz, siz, 2/3)
     imgs = []
 
     t = 0
     T = 53
     while t < T:
         t+=1
-        tex.add_to_pos(1)
+        texture.add_to_pos(1)
         img = np.ones((siz, siz, 3), dtype = "uint8") * 255
         img2 = np.zeros_like(img) + 255
         goutte.render(img)
         goutte2.render(img)
-        img2 = tex.render(img2)
+        img2 = texture.render(img2)
         # use the mask to fill img with img2 where mask is True
         img[mask] = img2[mask]
         # tk.render_debug_point(img, goutte.top_pt, small=True, color='red')
@@ -237,5 +229,21 @@ if __name__ == "__main__":
             cv2.destroyAllWindows()
             break
     tk.save_gif(imgs, 'test.gif')
+
+def debug():
+    # same as base but just render the outer drop and render it with opencv. One frame.
+    siz = 401
+    ang = float(np.deg2rad(37.0))
+    hei = 3/4*siz
+
+    goutte = Goutte(hei, ang, (siz/2, siz/2), width = 1)
+    img = np.ones((siz, siz, 3), dtype = "uint8") * 255
+    goutte.render(img)
+    tk.render(img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    debug()
     
 
