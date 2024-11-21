@@ -16,6 +16,7 @@ class Fleur:
     ):
         self.goutte = Goutte(height, angle, center)
         self.half_arc = self._init_half_arc()
+        self.nervures = []
 
     def _init_half_arc(self) -> Arc:
         """ Initialize the half-arc from the Goutte. 
@@ -151,11 +152,17 @@ class Fleur:
     def get_derivative(self, x, y, z):
         # TODO : ajouter une vérification sur le fait que le point est 
         # bien sur la goutte.
+        x_der = np.cos(self.get_theta(x, y))
+        y_der = np.sin(self.get_theta(x,y))
+        if z >= self.goutte.arc.center[1]:
+            x_der = - x_der
+            y_der = - y_der
         z_der = self.get_z_derivative(z)
+        z_der = abs(z_der)
         deriv = (
-            -np.cos(self.get_theta(x, y)), 
-            -np.sin(self.get_theta(x, y)),
-            -z_der
+            x_der, 
+            y_der,
+            z_der
         )
         return deriv
     
@@ -181,28 +188,7 @@ class Fleur:
         x = xs[0] if xs[0] > self.half_arc.center[0] else xs[1]
         ang = self.half_arc.point2rad((x, z))
         deriv = self.half_arc.get_derivative_y(ang)
-        # pad the value
-        # deriv = min(deriv, 2)
-        # deriv = max(deriv, -2)
         return deriv
-        # z -= self.half_arc.center[1]
-        # b = self.half_arc.b
-        # a = self.half_arc.a
-        # # Handle numerical stability near the edges
-        # epsilon = 1e-10  # Small value to avoid division by zero
-        # # root_term = 1 - (z**2) / b**2
-        # # if root_term < epsilon:
-        # #     return float("inf")  # or a very large value
-        # # # Compute the derivative
-        # # # return - (b * z) / (b**2 * np.sqrt(root_term))
-        # # deriv = - (b**2 * np.sqrt(root_term)) / (a * z)
-        # root_term = 1 - (z**2) / b**2
-        # if root_term < epsilon:
-        #     return float("inf")  # or a very large value
-        # # Compute the derivative dx/dz
-        # deriv = (a**2 * np.sqrt(root_term)) / (b**2 * z)
-        # deriv = np.abs(min(deriv, 5))
-        # return deriv
     
     def get_ang_from_z(self, z):
         assert z >= self.goutte.bot_pt[1] and z <= self.goutte.r_pt[1], \
@@ -274,12 +260,9 @@ class Fleur:
 
         normalized_derivs = []
         for deriv in derivs:
-            length = np.sqrt(sum(d*d for d in deriv))  # Calculate current length
-            if length > 0:  # Avoid division by zero
-                normalized = tuple(d/length * line_length for d in deriv)
-                normalized_derivs.append(normalized)
-            else:
-                normalized_derivs.append((0, 0, 0))
+            deriv = tk.normalize_vector(deriv)
+            deriv = tuple(deriv * line_length)
+            normalized_derivs.append(deriv)
 
         pts2 = np.add(pts, normalized_derivs)
         # plot the segments
@@ -303,6 +286,9 @@ def test_deriv_z():
     fleur = Fleur(height=100, angle=angle, center=(0.0, 0.0))
     zs = np.linspace(fleur.goutte.bot_pt[1], fleur.goutte.top_pt[1], 1000)
     derivs = [fleur.get_z_derivative(z) for z in zs]
+    # cap derivs values
+    val = 3
+    derivs = [min(max(deriv, -val), val) for deriv in derivs]
     plt.title("Derivative of the fleur's profile")
     plt.plot(zs, derivs)
     plt.axvline(x=fleur.goutte.arc.center[1], color='r', linestyle='--')
@@ -321,3 +307,4 @@ def plot_shit():
 
 if __name__ == "__main__":
     plot_shit()
+    # test_deriv_z()

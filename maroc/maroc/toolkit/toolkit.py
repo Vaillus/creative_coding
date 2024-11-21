@@ -279,6 +279,14 @@ def interpolate_pts(
     """interpolate 2 points"""
     return tuple([interpolate(pt1[i], pt2[i], frac) for i in range(len(pt1))])
 
+def normalize_vector(vec: Tuple[float, ...]) -> Tuple[float, ...]:
+    """Regularize a vector to unit length"""
+    length = np.sqrt(sum(x**2 for x in vec))
+    if length > 0:
+        return tuple(x/length for x in vec)
+    else:
+        return vec
+
 # === region functions =================================================
 
 
