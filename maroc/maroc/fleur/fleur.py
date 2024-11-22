@@ -5,6 +5,7 @@ import math
 
 from maroc.goutte.goutte import Goutte
 from maroc.lampe.arc import Arc
+from maroc.fleur.pétale import Petal
 import maroc.toolkit.toolkit as tk
 
 class Fleur:
@@ -12,11 +13,18 @@ class Fleur:
         self,
         height: float,
         angle: float,
-        center: Tuple[float, float]
+        center: Tuple[float, float],
+        n_petales: int=100,
+        petal_length: float=5,
+        offset:float=137.5
     ):
         self.goutte = Goutte(height, angle, center)
         self.half_arc = self._init_half_arc()
-        self.nervures = []
+        self.petales = self.init_petales(
+            n_petales, 
+            petal_length, 
+            offset
+        )
 
     def _init_half_arc(self) -> Arc:
         """ Initialize the half-arc from the Goutte. 
@@ -33,6 +41,20 @@ class Fleur:
         )
         return half_arc
     
+    def init_petales(
+        self, 
+        n_petales:int, 
+        petal_length:float, 
+        offset:float=137.5
+    ):
+        """Initialize the nervures of the fleur."""
+        x, y, z = self.get_petals_pos(n_petales, offset)
+        pts = list(tk.Point3D(x, y, z) for x, y, z in zip(x, y, z))
+        derivs = [self.get_derivative(pt.x, pt.y, pt.z) for pt in pts]
+        normalized_derivs = [tuple(x * petal_length for x in tk.normalize_vector(deriv)) for deriv in derivs]
+        pts2 = [pt + tk.Point3D(*deriv) for pt, deriv in zip(pts, normalized_derivs)]
+        return [Petal(pt1, pt2) for pt1, pt2 in zip(pts, pts2)]
+
 
 
     # === Points on the Goutte =========================================
@@ -154,11 +176,12 @@ class Fleur:
         # bien sur la goutte.
         x_der = np.cos(self.get_theta(x, y))
         y_der = np.sin(self.get_theta(x,y))
+        z_der = self.get_z_derivative(z)
         if z >= self.goutte.arc.center[1]:
             x_der = - x_der
             y_der = - y_der
-        z_der = self.get_z_derivative(z)
-        z_der = abs(z_der)
+            z_der = - z_der
+        # z_der = abs(z_der)
         deriv = (
             x_der, 
             y_der,
@@ -198,8 +221,6 @@ class Fleur:
 
     def get_radius(self, z):
         # depends exclusively on z
-        # frac = (z-self.goutte.bot_pt[1]) / self.goutte.hei
-        # lfrac, afrac = self._get_len_fractions()
         if z >= self.goutte.r_pt[1]:
             radius = self._get_radius_line(z)
         else:
@@ -231,14 +252,11 @@ class Fleur:
 
 
 
-    def plot(self, offset=137.5, npts=100, elev=0):
-        npts = int(npts)
-        # Create new figure each time
+    def plot_positions(self, elev=0):
         fig = plt.figure(figsize=(8, 6))
         ax = fig.add_subplot(111, projection='3d')
-        x, y, z = self.get_petals_pos(npts, offset)
         # Create new scatter plot
-        ax.scatter(x, y, z)
+        ax.scatter((petale.base.x, petale.base.y, petale.base.z) for petale in self.petales)
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         ax.set_zlabel('h')
@@ -249,27 +267,11 @@ class Fleur:
         ax.set_ylim(-w, w)
         plt.show()
 
-    def plot_deriv(self, offset=137.5, n_pts=100, line_length=5):
-        npts = int(n_pts)
-        # Create new figure each time
+    def plot_deriv(self):
         fig = plt.figure(figsize=(8, 6))
         ax = fig.add_subplot(111, projection='3d')
-        x, y, z = self.get_petals_pos(npts, offset)
-        pts = list(zip(x, y, z))
-        derivs = [self.get_derivative(*pt) for pt in pts]
-
-        normalized_derivs = []
-        for deriv in derivs:
-            deriv = tk.normalize_vector(deriv)
-            deriv = tuple(deriv * line_length)
-            normalized_derivs.append(deriv)
-
-        pts2 = np.add(pts, normalized_derivs)
-        # plot the segments
-        for i in range(npts):
-            ax.plot([pts[i][0], pts2[i][0]], 
-                    [pts[i][1], pts2[i][1]], 
-                    [pts[i][2], pts2[i][2]])
+        for petale in self.petales:
+            petale.plot(ax)
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         ax.set_zlabel('h')
@@ -301,8 +303,15 @@ def test_deriv_z():
 
 def plot_shit():
     angle = np.deg2rad(90.0)
-    fleur = Fleur(height=100, angle=angle, center=(0.0, 0.0))
-    fleur.plot_deriv(n_pts=246, line_length=7)
+    fleur = Fleur(height=200, angle=angle, center=(0.0, 0.0), petal_length=20)
+    fleur.plot_deriv()
+    for petale in fleur.petales:
+        # phi = petale.phi + np.deg2rad(180.0)
+        if petale.base.z < fleur.goutte.arc.center[1]:
+            petale.set_phi(petale.phi + np.deg2rad(30.0))
+        else:
+            petale.set_phi(petale.phi - np.deg2rad(30.0))
+    fleur.plot_deriv()
 
 
 if __name__ == "__main__":

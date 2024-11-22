@@ -4,13 +4,38 @@ from math import atan2
 from typing import Tuple, Union, List
 import matplotlib.colors as mcolors
 from PIL import Image
+from dataclasses import dataclass
 
 from maroc.toolkit.line import Line
 
 
 
+@dataclass
+class Point2D:
+    x:float
+    y:float
+    
+    def __add__(self, other):
+        assert isinstance(other, Point2D)
+        return Point2D(self.x + other.x, self.y + other.y)
+    
+    @property
+    def tuple(self):
+        return (self.x, self.y)
 
-
+@dataclass
+class Point3D:
+    x:float
+    y:float
+    z:float
+    # add with another point
+    def __add__(self, other):
+        assert isinstance(other, Point3D)
+        return Point3D(self.x + other.x, self.y + other.y, self.z + other.z)
+    
+    @property
+    def tuple(self):
+        return (self.x, self.y, self.z)
 
 # === type conversion functions ========================================
 
